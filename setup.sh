@@ -2,9 +2,9 @@
 
 set -e # Exit immediately if a command exits with a non-zero status
 
-ENV_NAME="comp4651"
+ENV_NAME="financial-agent-env"
 
-echo "=== Starting COMP4651 Project Setup ==="
+echo "=== Starting Financial Agent Project Setup ==="
 
 # 1. Environment creation using Conda (with fallback to venv)
 if command -v conda &> /dev/null; then
