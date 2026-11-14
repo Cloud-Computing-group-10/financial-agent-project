@@ -1,0 +1,13 @@
+anthropic>=2.8
+pydantic>=2
+numpy<2            # torch 2.3 wheels are built against numpy 1.x
+rank_bm25
+beautifulsoup4
+lxml
+requests
+torch==2.3.1
+transformers==4.51.3   # transformers 5.x needs torch>=2.6
+fastapi
+uvicorn
+# optional, local Qwen on Apple Silicon (--llm qwen). mlx-lm >= 0.25 requires transformers 5.
+mlx-lm==0.24.1; platform_system == "Darwin"

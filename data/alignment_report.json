@@ -1,0 +1,287 @@
+{
+  "MMM": {
+    "net_sales": {
+      "tag": "Revenues",
+      "label": "Revenues",
+      "n_facts": 10
+    },
+    "cost_of_sales": {
+      "tag": "CostOfRevenue",
+      "label": "Cost of Revenue",
+      "n_facts": 10
+    },
+    "gross_profit": {
+      "tag": null,
+      "status": "unsupported",
+      "tried": [
+        "GrossProfit"
+      ],
+      "excluded": {}
+    },
+    "sga": {
+      "tag": "SellingGeneralAndAdministrativeExpense",
+      "label": "Selling, General and Administrative Expense",
+      "n_facts": 10
+    },
+    "rd_expense": {
+      "tag": null,
+      "status": "unsupported",
+      "tried": [
+        "ResearchAndDevelopmentExpense",
+        "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"
+      ],
+      "excluded": {}
+    },
+    "operating_income": {
+      "tag": "OperatingIncomeLoss",
+      "label": "Operating Income (Loss)",
+      "n_facts": 10
+    },
+    "pretax_income": {
+      "tag": "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+      "label": "Income (Loss) from Continuing Operations before Income Taxes, Noncontrolling Interest",
+      "n_facts": 10
+    },
+    "net_income": {
+      "tag": "NetIncomeLoss",
+      "label": "Net Income (Loss) Attributable to Parent",
+      "n_facts": 10
+    },
+    "eps_diluted": {
+      "tag": "EarningsPerShareDiluted",
+      "label": "Earnings Per Share, Diluted",
+      "n_facts": 10
+    },
+    "operating_cash_flow": {
+      "tag": "NetCashProvidedByUsedInOperatingActivities",
+      "label": "Net Cash Provided by (Used in) Operating Activities",
+      "n_facts": 6
+    }
+  },
+  "KO": {
+    "net_sales": {
+      "tag": "Revenues",
+      "label": "Revenues",
+      "n_facts": 10
+    },
+    "cost_of_sales": {
+      "tag": "CostOfGoodsAndServicesSold",
+      "label": "Cost of Goods and Services Sold",
+      "n_facts": 10
+    },
+    "gross_profit": {
+      "tag": "GrossProfit",
+      "label": "Gross Profit",
+      "n_facts": 10
+    },
+    "sga": {
+      "tag": "SellingGeneralAndAdministrativeExpense",
+      "label": "Selling, General and Administrative Expense",
+      "n_facts": 10
+    },
+    "rd_expense": {
+      "tag": null,
+      "status": "unsupported",
+      "tried": [
+        "ResearchAndDevelopmentExpense",
+        "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"
+      ],
+      "excluded": {}
+    },
+    "operating_income": {
+      "tag": "OperatingIncomeLoss",
+      "label": "Operating Income (Loss)",
+      "n_facts": 10
+    },
+    "pretax_income": {
+      "tag": "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+      "label": "Income (Loss) from Continuing Operations before Income Taxes, Noncontrolling Interest",
+      "n_facts": 10
+    },
+    "net_income": {
+      "tag": "NetIncomeLoss",
+      "label": "Net Income (Loss) Attributable to Parent",
+      "n_facts": 10
+    },
+    "eps_diluted": {
+      "tag": "EarningsPerShareDiluted",
+      "label": "Earnings Per Share, Diluted",
+      "n_facts": 10
+    },
+    "operating_cash_flow": {
+      "tag": "NetCashProvidedByUsedInOperatingActivities",
+      "label": "Net Cash Provided by (Used in) Operating Activities",
+      "n_facts": 6
+    }
+  },
+  "JNJ": {
+    "net_sales": {
+      "tag": "RevenueFromContractWithCustomerExcludingAssessedTax",
+      "label": "Revenue from Contract with Customer, Excluding Assessed Tax",
+      "n_facts": 10
+    },
+    "cost_of_sales": {
+      "tag": "CostOfGoodsAndServicesSold",
+      "label": "Cost of Goods and Services Sold",
+      "n_facts": 10
+    },
+    "gross_profit": {
+      "tag": "GrossProfit",
+      "label": "Gross Profit",
+      "n_facts": 10
+    },
+    "sga": {
+      "tag": "SellingGeneralAndAdministrativeExpense",
+      "label": "Selling, General and Administrative Expense",
+      "n_facts": 10
+    },
+    "rd_expense": {
+      "tag": "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+      "label": "Research and Development Expense (Excluding Acquired in Process Cost)",
+      "n_facts": 10
+    },
+    "operating_income": {
+      "tag": null,
+      "status": "unsupported",
+      "tried": [
+        "OperatingIncomeLoss"
+      ],
+      "excluded": {}
+    },
+    "pretax_income": {
+      "tag": "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+      "label": "Income (Loss) from Continuing Operations before Income Taxes, Noncontrolling Interest",
+      "n_facts": 10
+    },
+    "net_income": {
+      "tag": "NetIncomeLoss",
+      "label": "Net Income (Loss) Attributable to Parent",
+      "n_facts": 10
+    },
+    "eps_diluted": {
+      "tag": "EarningsPerShareDiluted",
+      "label": "Earnings Per Share, Diluted",
+      "n_facts": 10
+    },
+    "operating_cash_flow": {
+      "tag": "NetCashProvidedByUsedInOperatingActivities",
+      "label": "Net Cash Provided by (Used in) Operating Activities",
+      "n_facts": 6
+    }
+  },
+  "CAT": {
+    "net_sales": {
+      "tag": "Revenues",
+      "label": "Revenues",
+      "n_facts": 10
+    },
+    "cost_of_sales": {
+      "tag": "CostOfRevenue",
+      "label": "Cost of Revenue",
+      "n_facts": 10
+    },
+    "gross_profit": {
+      "tag": null,
+      "status": "unsupported",
+      "tried": [
+        "GrossProfit"
+      ],
+      "excluded": {}
+    },
+    "sga": {
+      "tag": "SellingGeneralAndAdministrativeExpense",
+      "label": "Selling, General and Administrative Expense",
+      "n_facts": 10
+    },
+    "rd_expense": {
+      "tag": "ResearchAndDevelopmentExpense",
+      "label": "Research and Development Expense",
+      "n_facts": 10
+    },
+    "operating_income": {
+      "tag": "OperatingIncomeLoss",
+      "label": "Operating Income (Loss)",
+      "n_facts": 10
+    },
+    "pretax_income": {
+      "tag": "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+      "label": "Income (Loss) from Continuing Operations before Equity Method Investments, Income Taxes, Noncontrolling Interest",
+      "n_facts": 10
+    },
+    "net_income": {
+      "tag": "NetIncomeLossAvailableToCommonStockholdersBasic",
+      "label": "Net Income (Loss) Available to Common Stockholders, Basic",
+      "n_facts": 10
+    },
+    "eps_diluted": {
+      "tag": "EarningsPerShareDiluted",
+      "label": "Earnings Per Share, Diluted",
+      "n_facts": 10
+    },
+    "operating_cash_flow": {
+      "tag": "NetCashProvidedByUsedInOperatingActivities",
+      "label": "Net Cash Provided by (Used in) Operating Activities",
+      "n_facts": 6
+    }
+  },
+  "HON": {
+    "net_sales": {
+      "tag": "RevenueFromContractWithCustomerExcludingAssessedTax",
+      "label": "Revenue from Contract with Customer, Excluding Assessed Tax",
+      "n_facts": 10
+    },
+    "cost_of_sales": {
+      "tag": "CostOfGoodsAndServicesSold",
+      "label": "Cost of Goods and Services Sold",
+      "n_facts": 10
+    },
+    "gross_profit": {
+      "tag": null,
+      "status": "unsupported",
+      "tried": [
+        "GrossProfit"
+      ],
+      "excluded": {}
+    },
+    "sga": {
+      "tag": "SellingGeneralAndAdministrativeExpense",
+      "label": "Selling, General and Administrative Expense",
+      "n_facts": 10
+    },
+    "rd_expense": {
+      "tag": "ResearchAndDevelopmentExpense",
+      "label": "Research and Development Expense",
+      "n_facts": 10
+    },
+    "operating_income": {
+      "tag": null,
+      "status": "unsupported",
+      "tried": [
+        "OperatingIncomeLoss"
+      ],
+      "excluded": {
+        "OperatingIncomeLoss": "Honeywell has no operating-income line on its income statement; this tag is its 'Total segment profit' from the segment note."
+      }
+    },
+    "pretax_income": {
+      "tag": "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+      "label": "Income (Loss) from Continuing Operations before Income Taxes, Noncontrolling Interest",
+      "n_facts": 10
+    },
+    "net_income": {
+      "tag": "NetIncomeLoss",
+      "label": "Net Income (Loss) Attributable to Parent",
+      "n_facts": 10
+    },
+    "eps_diluted": {
+      "tag": "EarningsPerShareDiluted",
+      "label": "Earnings Per Share, Diluted",
+      "n_facts": 10
+    },
+    "operating_cash_flow": {
+      "tag": "NetCashProvidedByUsedInOperatingActivities",
+      "label": "Net Cash Provided by (Used in) Operating Activities",
+      "n_facts": 6
+    }
+  }
+}
