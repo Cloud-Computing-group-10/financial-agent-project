@@ -2,7 +2,7 @@
 
 Default from the environment: FINQA_LLM (a preset name) and FINQA_MODEL (model override).
 Switch at runtime with configure(llm, model), the CLI/eval flags --llm/--model, or the API's
-"llm"/"model" fields. Presets: claude, chatgpt, qwen (= mlx Qwen2.5-7B), qwen-14b, mlx, ollama, openai.
+"llm"/"model" fields. Presets: claude, chatgpt, hkust, qwen (= mlx Qwen2.5-7B), qwen-14b, mlx, ollama, openai.
 
   claude   (default)  Anthropic API, model FINQA_MODEL (default claude-opus-5-5).
                       Schema enforced server-side via structured outputs.
@@ -10,6 +10,7 @@ Switch at runtime with configure(llm, model), the CLI/eval flags --llm/--model, 
                       (default mlx-community/Qwen2.5-7B-Instruct-4bit).
   chatgpt             OpenAI API (api.openai.com), key in OPENAI_API_KEY, model FINQA_MODEL or
                       --model (default gpt-4.1). Uses the same "openai" backend as below.
+  hkust               HKUST GenAI gateway (Azure), key in HKUST_API_KEY, default model gpt-4o-mini.
   openai              Any OpenAI-compatible chat server (Ollama, LM Studio, vLLM, llama.cpp),
                       FINQA_OPENAI_URL (default http://localhost:11434/v1, i.e. Ollama),
                       model FINQA_MODEL (e.g. qwen2.5:7b-instruct), optional FINQA_OPENAI_KEY.
@@ -40,6 +41,7 @@ PRESETS = {
     "openai": ("openai", "qwen2.5:7b-instruct"),                     # e.g. Ollama
     "ollama": ("openai", "qwen2.5:7b-instruct"),
     "chatgpt": ("openai", "gpt-4.1"),                                # OpenAI API
+    "hkust": ("openai", "gpt-4o-mini"),                              # HKUST GenAI gateway (free for students)
 }
 
 # Endpoint settings for presets on the OpenAI-compatible backend.
@@ -53,6 +55,9 @@ ENDPOINTS = {
     # gpt-4.1 has a ~1M-token context, so the full-10-Q baseline fits. Change if you pick another model.
     "chatgpt": {"url": os.environ.get("FINQA_CHATGPT_URL", "https://api.openai.com/v1"), "key_env": "OPENAI_API_KEY",
                 "context": int(os.environ.get("FINQA_CHATGPT_CONTEXT", "1000000")), "max_out": 16000},
+    # HKUST's Azure API gateway speaks the OpenAI protocol. gpt-4o-mini has a 128k context.
+    "hkust": {"url": "https://hkust.azure-api.net/hkust-genai/v1", "key_env": "HKUST_API_KEY",
+              "context": 128000, "max_out": 16000},
 }
 
 BACKEND = "claude"
@@ -119,8 +124,8 @@ def available() -> bool:
         except ImportError:
             return False
     if BACKEND == "openai":
-        if OPENAI_KEY_ENV == "OPENAI_API_KEY":  # hosted API: a key is required
-            return bool(os.environ.get("OPENAI_API_KEY"))
+        if OPENAI_KEY_ENV != _LOCAL_SERVER["key_env"]:  # hosted API (OpenAI, HKUST): a key is required
+            return bool(os.environ.get(OPENAI_KEY_ENV))
         try:  # local server: is it running?
             import requests
             requests.get(f"{OPENAI_URL}/models", timeout=2, headers=_openai_headers())
@@ -274,7 +279,10 @@ def _mlx_generate(messages, max_tokens):
 
 def _openai_headers() -> dict:
     key = os.environ.get(OPENAI_KEY_ENV)
-    return {"Authorization": f"Bearer {key}"} if key else {}
+    if not key:
+        return {}
+    # OpenAI reads the Bearer token; HKUST's Azure gateway reads the "api-key" header.
+    return {"Authorization": f"Bearer {key}", "api-key": key}
 
 
 def _openai_generate(messages, max_tokens, json_mode):

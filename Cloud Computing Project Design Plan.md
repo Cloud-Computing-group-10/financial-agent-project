@@ -102,7 +102,7 @@ The tool returns a relevance score (does the passage match the query); deciding 
 5. Combine with figures from the figures table where needed.  
 6. If the evidence is weak, abstain.
 
-   ## **12\. Evaluation**
+   ## **12\. Evaluation** *(superseded by section 16)*
 
 1. Baseline (generous): a plain LLM given the full correct 10-Q document, with no tools or workflow, and the same instruction to cite sources. A stronger baseline makes any win by our system more credible and reflects how the task would be done without our workflow.  
 2. Comparison scope: system-level (accuracy and cost), not single-variable isolation; isolating a single variable is an ablation, which is optional extra work.  
@@ -180,14 +180,14 @@ These tweaks keep the design above intact; they fix practical problems found whi
 3. **Metrics presented:** latency, input/output tokens, accuracy, and data source accuracy (the cited filing, statement and period are correct).
 4. **Token budget:** the parse prompt was cut from ~726 to ~381 tokens per question for Qwen. The cuts were removing duplicated field descriptions, using a compact JSON shape instead of a full JSON Schema, and not running the explanation call for numeric questions. For Claude, about 600 of the ~1,050 tokens per call are added by the API's structured-output mode, which guarantees valid JSON.
 
-### 15.5 Evaluation *(refines section 12)*
+### 15.5 Evaluation *(refines section 12; superseded by section 16)*
 
 1. Test set grows from 25 to **about 50–60 questions** (5 companies × ~10–12), with deliberately paraphrased explanatory questions. With only 25 questions, the semantic-vs-keyword difference would not be distinguishable from noise. If time runs short, keep 25 and state the lack of statistical power under limitations.
 2. **Retrieval-level metric for the controlled experiment:** for each explanatory question, the answer key lists evidence phrases that a correct passage must contain. Hit@k / MRR are computed for BM25 vs semantic vs hybrid, which needs no LLM and no grading by hand.
 3. Numeric answer-key values are drafted from the structured data and **checked by hand against the filing** (otherwise the system would be graded against its own source).
 4. Edge cases cover: unknown company, unsupported metric, Q4 / 10-K questions, missing period (assumption stated), and "why" questions with no supporting passage.
 
-### 15.6 Cloud component *(new — to confirm against course requirements)*
+### 15.6 Cloud component *(superseded by section 17)*
 
 The plan above has no cloud element, but the course is Cloud Computing. The prototype therefore includes a small HTTP API (FastAPI, `POST /ask`) and a Dockerfile, so the system can be deployed as a container (e.g. Cloud Run / App Service / ECS) with the data directory baked in or mounted. **To do:** check what the project brief requires (deployment, scaling, managed storage) and extend this section.
 
@@ -198,3 +198,139 @@ Five calendar-year companies, all 2023 10-Qs (Q1–Q3): 3M (MMM), Coca-Cola (KO)
 ### 15.8 MVP status (prototype for the interim hand-off)
 
 The MVP implements: ingestion + alignment check, the SQLite stores, BM25/semantic/hybrid search, the full 5-step workflow with policies, the baseline, an evaluation harness with a starter question set, a CLI and an HTTP API. Still to do: a full hand-verified answer key, calibrating thresholds on a dev set, the complete evaluation run with the LLM, and the written report.
+## **16\. Experiment plan (v3, 17 November)**
+
+This section replaces the evaluation plan in sections 12 and 15.5 for the final report. Those sections are kept for history. The MVP result (section 15.9, `eval/RESULTS.md`) stays as the first data point.
+
+### 16.1 Why the plan changes
+
+1. **The numeric questions are too easy.** In the MVP, the workflow and the full-document baseline both scored 25/25 with Claude, so the set cannot show differences between systems or between model sizes. The new set adds harder question types (16.4).
+2. **The baseline is too weak on its own.** Giving the model the whole 80k-token filing is the "no workflow" extreme. A grader could reasonably ask whether we only beat a weak baseline, so we add a simple RAG baseline, which is what most people would build.
+3. **Model comparison alone is not enough** (course requirement). Model size is therefore one axis inside the system comparison, not the comparison itself.
+
+### 16.2 Systems compared
+
+| ID | System | What it does | Purpose |
+| :---- | :---- | :---- | :---- |
+| A | **Our workflow** | LLM parses the question → routing → SQL template or passage search → checks (allowed values, citation ids, decline rules) → cited answer | Our contribution |
+| B | **Full-document baseline** (built, `finqa/baseline.py`) | The whole correct 10-Q plus the question go to the LLM, with the same instruction to cite sources | The "no workflow" extreme |
+| C | **Simple RAG baseline** (to build) | Top-k passages from the same search index plus the question go to the LLM. No parsing, no SQL, no routing, no citation checks, no decline rules | The usual approach; isolates the value of our routing, SQL and checks |
+
+B and C get the same instruction text as far as possible. C uses the same index, chunking and k as A's explanatory path, so the only difference is the workflow around retrieval.
+
+### 16.3 Models (second axis)
+
+| Size class | Model | Access |
+| :---- | :---- | :---- |
+| Large, closed | Claude Opus 5.5 (`claude-opus-5-5`) | Anthropic API |
+| Small, closed | Claude Haiku 5.5 (`claude-haiku-5-5`) | Anthropic API |
+| Small, closed | GPT-4o-mini | HKUST gateway (`hkust` preset, to add) |
+| Small, open | Qwen2.5-7B-Instruct (4-bit) | Local (mlx / Ollama) |
+| Optional | Qwen2.5-3B or 14B | Local, only if time allows |
+
+Every system runs with every model where it fits. If a model's context window cannot hold the input (B with Qwen, 32k context vs 44k–122k-token filings), the cell is recorded as `context_overflow`, not truncated. That outcome is a result in itself.
+
+Main hypotheses:
+1. The workflow keeps small models close to the large model's accuracy, while both baselines lose more accuracy as the model gets smaller.
+2. The workflow is much cheaper and faster than B at every model size, and cheaper than C, because numeric questions skip the passages entirely.
+3. B and C answer questions they should decline more often than A does.
+
+### 16.4 Question set
+
+About 60 questions over the 5 pilot companies, split into a **dev set** (about 10, used only to calibrate search thresholds) and a **test set** (about 50, never used for tuning).
+
+| Category | Approx. count | Example | What it tests |
+| :---- | :---- | :---- | :---- |
+| Numeric lookup | 10 | "What was 3M's revenue in Q2 2023?" | Exact figures and sources (the existing 25 can be reused) |
+| Year-over-year change | 10 | "By how much did Coca-Cola's operating income grow versus last year in Q3 2023?" | Calculation. The baselines must do the arithmetic, the workflow does it in SQL |
+| Paraphrased numeric | 8 | "How did J&J's top line do in Q1 2023?" | Mapping user wording to our metrics |
+| Explanatory ("why") | 12 | "Why did 3M's sales drop in Q2 2023?" | Retrieval and grounded explanation |
+| Should decline | 8 | Unknown company, Q4, a 10-K question, a ratio, a metric the company does not report (e.g. Honeywell operating income) | Abstention |
+| Missing period | 2 | "What was Caterpillar's net income?" | Assumes the latest quarter and says so |
+
+Answer key rules (as in 15.5 and 15.9):
+1. Numeric values are checked against the filing's own statement table (`eval/verify_answer_key.py`), not only against the structured data.
+2. Each explanatory question lists the correct reason(s) and the evidence phrases a correct passage must contain. These phrases are used for retrieval scoring (16.6) and for grading.
+3. Each should-decline question records the reason it must be declined.
+
+### 16.5 Metrics
+
+Measured for every system × model cell:
+
+| Metric | Definition |
+| :---- | :---- |
+| Answer accuracy | Numeric: value within the answer's stated precision (or ±0.1% for % changes). Explanatory: states the correct reason (rubric in section 9) |
+| Citation accuracy | The cited filing, statement and period are correct. Explanatory: at least one cited passage contains an evidence phrase |
+| Abstention | Precision and recall of declining on the should-decline questions, plus the false-decline rate on answerable questions |
+| Latency | Median, mean and p95 seconds per question, end to end |
+| Tokens | Input and output tokens per question |
+| Cost | API cost per question and per 50 questions, at list prices on the run date; $0 for local models, noting the hardware |
+
+System-only metrics for A: routing correctness, parse correctness (company/metric/period), and the share of claims dropped by citation checks.
+
+Explanatory answers are graded by hand by a group member using the rubric. An LLM judge may be used to draft grades, but the reported numbers are the human grades.
+
+### 16.6 Controlled experiment: search method
+
+Required by the course. It runs on the explanatory questions with the same data, chunks, k and model; only the search method changes.
+
+| Arm | Method |
+| :---- | :---- |
+| 1 | BM25 (keyword) |
+| 2 | Semantic (embeddings) |
+| 3 | Hybrid (reciprocal-rank fusion of 1 and 2) |
+
+Measured at two levels:
+1. **Retrieval only (no LLM):** Hit@1, Hit@5 and MRR against the evidence phrases. This is cheap and deterministic, and paraphrased questions are expected to show the largest gap.
+2. **End to end:** answer and citation accuracy of system A with each arm, using one fixed model (Haiku, to keep cost low).
+
+Thresholds for each arm are calibrated on the dev set only.
+
+### 16.7 Ablations (optional, if time allows)
+
+Each removes one part of system A, on the same test set and model:
+1. No citation verification: claims with invalid chunk ids are kept.
+2. No decline rules: Q4, 10-K, ratio and unsupported-metric questions are answered anyway.
+3. No second search round: at most one round.
+
+They show which of our parts actually change accuracy or the error rate.
+
+### 16.8 Cloud and system performance
+
+Run on the deployed system (AWS Learner Lab), so they complement the quality results above:
+1. **API load test:** latency (median and p95) and throughput of `POST /ask` at 1, 10 and 50 concurrent users (locust), for numeric and explanatory questions separately. LLM time and our own processing time are reported separately.
+2. **Spark ingestion scaling:** job time and throughput for the SEC bulk XBRL data at increasing data sizes (e.g. 50, 500 and all companies) and 1, 2 and 4 workers on EMR.
+
+### 16.9 Budget and run order
+
+1. **Cost estimate (API credits, not AWS):** B with Opus is the expensive cell (about $0.33 per question, about $17–20 for 50–60 questions). All other cells together are expected to cost less than that. HKUST and local models are free. Runs save checkpoints (`eval/results/checkpoints/`), so a crash never means paying twice.
+2. **Order:** (1) build the question set and answer key → (2) the retrieval-only search experiment (free) → (3) all cells with the cheap models → (4) the Opus cells once, at the end → (5) the cloud experiments on the deployed system.
+3. Any re-run of an expensive cell needs a group decision first.
+
+### 16.10 Threats to validity
+
+1. About 50 test questions over 5 calendar-year companies: small differences (1–2 questions) are within noise. The report states counts, not only percentages.
+2. Explanatory grading involves human judgement. The rubric is fixed before grading, and graders do not see which system produced an answer.
+3. The answer key for numeric questions is derived from the same filings the systems use. Checking it against the filing tables reduces, but does not remove, shared errors.
+4. API latency depends on provider load at run time. All cells of a comparison run in the same time window.
+
+### 16.11 External test set: FinanceBench (after the bulk load)
+
+1. FinanceBench (`PatronusAI/financebench`, CC-BY-NC 4.0) has 150 open questions over real SEC filings of US companies, each with an answer, evidence text and the filing. Most are about 10-Ks; some are about 10-Qs.
+2. It becomes usable once the Spark bulk load (section 17) has the numbers of every filer. The questions are split by code and by hand into **in scope** (a single metric from our list, or its change, for a quarter) and **out of scope** (ratios, multi-step calculations, judgement questions). Out-of-scope questions are kept as "should decline" cases.
+3. 10-K questions need full fiscal years. Supporting them means adding a 12-month duration (`FY 2023`) to the period rules in `finqa/facts.py` and relaxing the 10-K scope rule. Decide this once the in-scope count is known.
+4. Reported separately from our own verified test set (16.4), because its answer key was made by others with different conventions.
+
+## **17\. Cloud architecture (v3, 17 November)**
+
+Replaces 15.6. Built and tested locally with Docker; deployment target is AWS Academy Learner Lab ($100 credits).
+
+1. **Two paths.** The query path (frontend → API → workflow → Postgres + LLM) answers one question in about 2 s. The data path (SEC → S3 → Spark → Postgres) runs as a batch job. Spark is never in the query path.
+2. **Postgres + pgvector** replaces SQLite plus a NumPy vector file. One database holds figures, filings, tag choices (`metric_tags`, which replaces `alignment_report.json`) and text passages with their vectors, so the API and the loaders share one store.
+3. **Spark on EMR** processes SEC's bulk `companyfacts.zip` (every filer). It runs the same `finqa/facts.py` code as the pilot ingest, so one set of rules applies everywhere; on the pilot files it produces exactly the pilot ingest's 850 figures. It also computes metric coverage and restatement conflicts with DataFrame aggregations.
+4. **Tag choice per filing (change to 15.1.3).** The first candidate tag is now chosen per filing instead of per company, so companies that switch tags between years (e.g. 3M's pre-tax income in 2022) are covered. The 840 previously verified figures are unchanged; 10 figures were added.
+5. **Company lookup in the database (change to 15.4.2).** With thousands of filers the parse prompt can no longer list the companies. The LLM copies the company mention from the question; `finqa/companies.py` resolves it (alias, ticker, normalised name, name prefix) and asks back if it is ambiguous. This also shortened the parse prompt (about 1,000 instead of 1,063 input tokens with Claude).
+6. **Embeddings with fastembed (ONNX)** instead of torch: the same MiniLM model and the same scores, without the torch/numpy version pins and with a much smaller image.
+7. **Deployment.** One Docker image; Docker Compose runs Postgres, the API and Streamlit on one EC2 instance. Raw files are kept in S3. Step-by-step setup is in `docs/CLOUD.md`.
+8. **Quality checks.** pytest (fact rules, parser rules, database loading, company lookup, numeric path with a fixed parse, the frontend page) runs in GitHub Actions against a real Postgres, plus a Docker build.
+9. **Limitations.** Quarters are calendar quarters, so for non-calendar fiscal years "Q2" means April-June, not the company's fiscal Q2. Tag choices for bulk companies are not verified against their filing documents.

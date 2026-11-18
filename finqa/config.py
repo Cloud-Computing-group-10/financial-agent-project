@@ -1,4 +1,7 @@
-"""Static configuration: companies, metric list (with XBRL tag candidates), paths, thresholds."""
+"""Static configuration: database, pilot companies, metric list (with XBRL tag candidates), thresholds.
+
+This module has no third-party imports, so the Spark job can ship it to the cluster as-is.
+"""
 from __future__ import annotations
 
 import os
@@ -6,29 +9,32 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("FINQA_DATA_DIR", ROOT / "data"))
-RAW_DIR = DATA_DIR / "raw"          # original files (source of truth)
-DB_PATH = DATA_DIR / "finqa.db"     # derived: companies/documents/figures/chunks
-EMB_PATH = DATA_DIR / "embeddings.npy"
-EMB_IDS_PATH = DATA_DIR / "embeddings_ids.json"
-ALIGNMENT_REPORT = DATA_DIR / "alignment_report.json"
+RAW_DIR = DATA_DIR / "raw"  # original SEC files (source of truth); everything in Postgres is rebuilt from them
 
-# SEC asks automated clients to identify themselves. Set your own contact here.
-SEC_USER_AGENT = os.environ.get(
-    "SEC_USER_AGENT", "cloudcomp-llm-project research-prototype@example.com"
-)
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://finqa:finqa@localhost:5432/finqa")
 
-# ---- Pilot companies (calendar fiscal years) --------------------------------
-COMPANIES = [
-    {"ticker": "MMM", "cik": 66740, "name": "3M Company", "aliases": ["3m", "3m company", "mmm"]},
-    {"ticker": "KO", "cik": 21344, "name": "The Coca-Cola Company", "aliases": ["coca-cola", "coca cola", "coke", "ko"]},
-    {"ticker": "JNJ", "cik": 200406, "name": "Johnson & Johnson", "aliases": ["johnson & johnson", "johnson and johnson", "j&j", "jnj"]},
-    {"ticker": "CAT", "cik": 18230, "name": "Caterpillar Inc.", "aliases": ["caterpillar", "cat"]},
-    {"ticker": "HON", "cik": 773840, "name": "Honeywell International Inc.", "aliases": ["honeywell", "hon"]},
+# SEC asks automated clients to identify themselves. Set your own contact in the environment.
+SEC_USER_AGENT = os.environ.get("SEC_USER_AGENT", "cloudcomp-llm-project research-prototype@example.com")
+
+# ---- Pilot companies -------------------------------------------------------------
+# The pilot set is ingested from per-company SEC files, including the 10-Q text for "why" questions.
+# The Spark job (spark/facts_job.py) adds the numbers of every other SEC filer from the bulk file.
+PILOT_COMPANIES = [
+    {"ticker": "MMM", "cik": 66740, "name": "3M Company"},
+    {"ticker": "KO", "cik": 21344, "name": "The Coca-Cola Company"},
+    {"ticker": "JNJ", "cik": 200406, "name": "Johnson & Johnson"},
+    {"ticker": "CAT", "cik": 18230, "name": "Caterpillar Inc."},
+    {"ticker": "HON", "cik": 773840, "name": "Honeywell International Inc."},
 ]
+PILOT_YEARS = (2022, 2023)  # 10-Qs whose period ends in these years (2022 gives year-over-year comparisons)
+TEXT_YEARS = (2023,)        # pilot 10-Qs whose text is indexed for passage search
 
-# Filings whose TEXT we index (facts are loaded for every 10-Q in FACT_YEARS).
-TEXT_YEARS = {2023}
-FACT_YEARS = {2022, 2023}
+# Names people use that are not the registered name (lowercase -> ticker).
+COMPANY_ALIASES = {
+    "coke": "KO",
+    "j&j": "JNJ",
+    "jnj": "JNJ",
+}
 
 # ---- Target metric list -------------------------------------------------------
 # field -> ordered candidate XBRL tags, statement, unit kind, user-facing aliases.
@@ -101,8 +107,8 @@ METRICS: dict[str, dict] = {
 # Tags a company reports that do NOT mean what our field means (found by verifying the answer key
 # against the filing documents). The alignment check skips them, so the metric becomes unsupported
 # for that company and the system declines instead of answering with the wrong line item.
-TAG_EXCLUDE = {
-    ("HON", "OperatingIncomeLoss"):
+TAG_EXCLUDE = {  # (CIK, tag) -> reason
+    (773840, "OperatingIncomeLoss"):
         "Honeywell has no operating-income line on its income statement; this tag is its "
         "'Total segment profit' from the segment note.",
 }
@@ -112,7 +118,8 @@ LLM_MODEL = "claude-opus-5-5"  # default for the claude preset; see finqa/llm.py
 LLM_EFFORT = os.environ.get("FINQA_EFFORT", "low")  # parsing/explaining are simple tasks
 
 # ---- Search / policies ------------------------------------------------------------
-EMBED_MODEL = os.environ.get("FINQA_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # run locally with fastembed (ONNX, CPU)
+EMBED_DIM = 384
 TOP_K = 5
 MAX_ROUNDS = 2
 MIN_PASSAGES = 2

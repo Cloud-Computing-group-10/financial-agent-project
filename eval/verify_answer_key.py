@@ -19,6 +19,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from finqa.config import DATA_DIR  # noqa: E402
+from finqa.companies import company_by_ticker  # noqa: E402
 from finqa.db import connect  # noqa: E402
 from finqa.text import html_to_lines  # noqa: E402
 from finqa.workflow import lookup, shift_period  # noqa: E402
@@ -71,9 +72,10 @@ def main() -> None:
     cache: dict[str, list[str]] = {}
     out, ok = [], 0
     for q in qs:
-        cur, _ = lookup(conn, q["company"], q["metric"], q["period"])
-        doc = conn.execute("""SELECT d.* FROM documents d JOIN companies c USING(company_id)
-                              WHERE c.ticker=? AND d.period=?""", (q["company"], q["period"])).fetchone()
+        company_id = company_by_ticker(conn, q["company"])["company_id"]
+        cur, _ = lookup(conn, company_id, q["metric"], q["period"])
+        doc = conn.execute("SELECT * FROM documents WHERE company_id = %s AND period = %s",
+                           (company_id, q["period"])).fetchone()
         if q.get("expect_status"):  # questions the system must decline (e.g. metric not reported)
             row = {"id": q["id"], "expect_status": q["expect_status"], "value": None,
                    "verified": cur is None, "note": q.get("note")}
@@ -87,7 +89,7 @@ def main() -> None:
                "line_label": cur and cur["line_label"], "period": q["period"], "derived": bool(cur and cur["is_derived"])}
         cells = [fmt_cell(cur["value"], cur["unit"])] if cur else []
         if q["compare"] == "yoy":
-            prev, _ = lookup(conn, q["company"], q["metric"], shift_period(q["period"], "yoy"))
+            prev, _ = lookup(conn, company_id, q["metric"], shift_period(q["period"], "yoy"))
             row["prev_value"] = prev and prev["value"]
             row["prev_period"] = shift_period(q["period"], "yoy")
             if cur and prev and prev["value"]:

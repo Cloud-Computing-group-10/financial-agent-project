@@ -8,8 +8,11 @@ from __future__ import annotations
 import threading
 from typing import Literal
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
+
+load_dotenv()  # API keys from .env when run outside Docker
 
 from finqa import llm
 from finqa.workflow import answer
@@ -20,7 +23,7 @@ app = FastAPI(title="10-Q cited QA", version="0.1.0")
 class AskRequest(BaseModel):
     question: str
     method: Literal["semantic", "bm25", "hybrid"] = "semantic"
-    llm: str | None = None    # preset: claude | chatgpt | qwen | qwen-14b | mlx | ollama | openai
+    llm: str | None = None    # preset: claude | hkust | chatgpt | qwen | qwen-14b | mlx | ollama | openai
     model: str | None = None  # override the preset's model id
 
 

@@ -1,8 +1,9 @@
 """Step 1: parse the question into company / metric / period / type with the LLM.
 
 The LLM proposes a structured parse (validated against the Pydantic schema). Code then checks it:
-  * values must come from the allowed lists (companies table, metric list),
-  * the company must actually be named in the question ("ask, don't guess"),
+  * the company is only a mention copied from the question; it must appear in the question
+    ("ask, don't guess"), and finqa.companies looks it up in the database,
+  * the metric must be in the metric list,
   * scope rules (10-K/annual, Q4, ratios, segments) are deterministic and always apply,
   * a question without a "why" word is never routed to the explanation path.
 These checks are validation, not a fallback parser: if the LLM call fails, the question fails.
@@ -15,7 +16,7 @@ from typing import Literal, Optional
 from pydantic import BaseModel, field_validator
 
 from . import llm
-from .config import COMPANIES, METRICS
+from .config import METRICS
 
 QType = Literal["numeric", "explanatory", "both"]
 Compare = Literal["none", "yoy", "qoq"]
@@ -24,7 +25,7 @@ Compare = Literal["none", "yoy", "qoq"]
 class ParsedQuestion(BaseModel):
     # Field meanings are explained once in the system prompt (no per-field descriptions here,
     # they would be sent a second time inside the schema and cost input tokens).
-    company: Optional[str] = None
+    company: Optional[str] = None  # the company as written in the question, resolved later
     metric: Optional[str] = None
     period: Optional[str] = None
     qtype: QType
@@ -38,7 +39,7 @@ class ParsedQuestion(BaseModel):
 
 
 _SYSTEM = """Convert a question about a company's quarterly results into JSON. Data: SEC 10-Q filings only.
-company: ticker, one of {companies}; null if no company is named. Never guess.
+company: the company name or ticker exactly as written in the question; null if none is named.
 metric: one of {metrics}; null if none fits.
 period: "Q<n> <yyyy>"; "latest" for last/most recent quarter; null if not stated.
 qtype: numeric (what/how much), explanatory (why/how), both (amount AND reason).
@@ -48,7 +49,6 @@ unsupported_reason: short reason if it asks for annual/10-K or Q4 data, a ratio/
 
 def _system_prompt() -> str:
     return _SYSTEM.format(
-        companies=", ".join(f"{c['ticker']} ({c['name']})" for c in COMPANIES),
         metrics=", ".join(f"{m} ({s['label'].lower()})" for m, s in METRICS.items()))
 
 
@@ -56,20 +56,6 @@ def _system_prompt() -> str:
 _ORD = {"first": 1, "1st": 1, "second": 2, "2nd": 2, "third": 3, "3rd": 3, "fourth": 4, "4th": 4}
 _WHY = re.compile(r"\b(why|how come|what (drove|caused|explains|held back|hurt|helped|is behind)|held back|reason|"
                   r"driver|drivers|due to|explain|contribut|factors)", re.I)
-
-
-def find_company(q: str) -> str | None:
-    """Company named in the question (by name, ticker or common alias), or None."""
-    ql = q.lower()
-    for c in COMPANIES:
-        for a in sorted(c["aliases"], key=len, reverse=True):
-            if len(a) <= 3:
-                if re.search(rf"(?<![a-z0-9]){re.escape(a)}(?![a-z0-9&])", ql) and \
-                        (a != "cat" or "caterpillar" in ql or re.search(r"\bCAT\b", q)):
-                    return c["ticker"]
-            elif a in ql:
-                return c["ticker"]
-    return None
 
 
 def find_period(q: str) -> str | None:
@@ -109,11 +95,9 @@ def scope_violation(q: str) -> str | None:
 def parse_question(q: str, usage: llm.Usage) -> ParsedQuestion:
     p = llm.parse("parse", _system_prompt(), q, ParsedQuestion, usage, max_tokens=1000)
 
-    named = find_company(q)
-    if p.company != named:
-        if named is None:
-            usage.log.append({"step": "parse", "note": f"dropped LLM company guess {p.company!r} (not named in question)"})
-        p.company = named
+    if p.company and p.company.lower() not in q.lower():
+        usage.log.append({"step": "parse", "note": f"dropped company {p.company!r} (not written in the question)"})
+        p.company = None
     if p.metric not in METRICS:
         p.metric = None
     if p.period and p.period != "latest" and not re.fullmatch(r"Q[1-4] 20\d\d", p.period):

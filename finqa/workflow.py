@@ -5,45 +5,49 @@ table, and source tags come from the database/search metadata, never from the mo
 """
 from __future__ import annotations
 
-import re
 import time
 from typing import Optional
 
 from pydantic import BaseModel, Field
 
 from . import llm
-from .config import COMPANIES, MAX_ROUNDS, METRICS, MIN_PASSAGES, THRESHOLDS, TOP_K
+from .companies import find_companies
+from .config import MAX_ROUNDS, METRICS, MIN_PASSAGES, THRESHOLDS, TOP_K
 from .db import connect
 from .parse import ParsedQuestion, parse_question
 from .search import MDA, search
 
 # ============================================================================ SQL templates
-# The LLM never writes SQL; it only supplies (ticker, metric, period) which code validates.
+# The LLM never writes SQL; it only supplies (company, metric, period), which code validates.
 SQL_LOOKUP = """
-SELECT f.*, d.title, d.accession, d.url, d.period AS doc_period, d.date AS filed
-FROM figures f JOIN documents d USING(report_id) JOIN companies c USING(company_id)
-WHERE c.ticker = :ticker AND f.metric = :metric AND f.period = :period AND f.duration = '3M'
-ORDER BY (d.period = f.period) DESC, d.date ASC
+SELECT f.*, d.title, d.accession, d.url, d.period AS doc_period, d.filed
+FROM figures f JOIN documents d USING (report_id)
+WHERE d.company_id = %(company_id)s AND f.metric = %(metric)s AND f.period = %(period)s AND f.duration = '3M'
+ORDER BY (d.period = f.period) DESC, d.filed ASC
 """
 
 SQL_CHANGE = """
 SELECT cur.value AS cur_value, prev.value AS prev_value,
        cur.value - prev.value AS abs_change,
        CASE WHEN prev.value = 0 THEN NULL
-            ELSE ROUND((cur.value - prev.value) * 100.0 / ABS(prev.value), 2) END AS pct_change
+            ELSE ROUND(((cur.value - prev.value) * 100.0 / ABS(prev.value))::numeric, 2)::float END AS pct_change
 FROM figures cur, figures prev
-WHERE cur.figure_id = :cur_id AND prev.figure_id = :prev_id
+WHERE cur.figure_id = %(cur_id)s AND prev.figure_id = %(prev_id)s
 """
 
 SQL_LATEST_DOC = """
-SELECT d.* FROM documents d JOIN companies c USING(company_id)
-WHERE c.ticker = :ticker {text_filter}
-ORDER BY d.period_end DESC LIMIT 1
+SELECT * FROM documents
+WHERE company_id = %(company_id)s AND (has_text OR NOT %(need_text)s)
+ORDER BY period_end DESC LIMIT 1
 """
 
 SQL_DOC_FOR_PERIOD = """
-SELECT d.* FROM documents d JOIN companies c USING(company_id)
-WHERE c.ticker = :ticker AND d.period = :period
+SELECT * FROM documents
+WHERE company_id = %(company_id)s AND period = %(period)s
+"""
+
+SQL_UNSUPPORTED = """
+SELECT unsupported_reason FROM metric_tags WHERE company_id = %(company_id)s AND metric = %(metric)s
 """
 
 
@@ -73,14 +77,10 @@ def figure_locator(f: dict) -> str:
             f"[us-gaap:{f['tag']}] › {f['period']} (three months{derived})")
 
 
-def company_name(ticker: str) -> str:
-    return next(c["name"] for c in COMPANIES if c["ticker"] == ticker)
-
-
 # ============================================================================ numeric path
-def lookup(conn, ticker: str, metric: str, period: str) -> tuple[Optional[dict], list[dict]]:
+def lookup(conn, company_id: int, metric: str, period: str) -> tuple[Optional[dict], list[dict]]:
     """Return (primary figure, conflicting figures). Primary = filing that covers the period."""
-    rows = [dict(r) for r in conn.execute(SQL_LOOKUP, {"ticker": ticker, "metric": metric, "period": period})]
+    rows = conn.execute(SQL_LOOKUP, {"company_id": company_id, "metric": metric, "period": period}).fetchall()
     if not rows:
         return None, []
     primary = rows[0]
@@ -89,30 +89,22 @@ def lookup(conn, ticker: str, metric: str, period: str) -> tuple[Optional[dict],
     return primary, conflicts
 
 
-def _unsupported_reason(ticker: str, metric: str) -> str | None:
-    """From the pre-ingest alignment check: why a metric has no tag for this company."""
-    import json
-    from .config import ALIGNMENT_REPORT
-    try:
-        entry = json.loads(ALIGNMENT_REPORT.read_text())[ticker][metric]
-    except (OSError, KeyError, ValueError):
-        return None
-    if entry.get("tag"):
-        return None
-    if entry.get("excluded"):
-        return "; ".join(entry["excluded"].values())
-    return "none of the XBRL tags " + ", ".join(entry.get("tried", [])) + " is reported"
+def unsupported_reason(conn, company_id: int, metric: str) -> str | None:
+    """Why a company has no figure for a metric (from the tag check at ingestion), if known."""
+    row = conn.execute(SQL_UNSUPPORTED, {"company_id": company_id, "metric": metric}).fetchone()
+    return row and row["unsupported_reason"]
 
 
-def numeric_path(conn, p: ParsedQuestion, period: str, trace: dict) -> dict:
+def numeric_path(conn, p: ParsedQuestion, company: dict, period: str, trace: dict) -> dict:
     out: dict = {"figures": [], "flags": []}
-    cur, conflicts = lookup(conn, p.company, p.metric, period)
-    trace["sql"] = [{"template": "SQL_LOOKUP", "params": [p.company, p.metric, period], "rows": int(cur is not None) + len(conflicts)}]
+    cid = company["company_id"]
+    cur, conflicts = lookup(conn, cid, p.metric, period)
+    trace["sql"] = [{"template": "SQL_LOOKUP", "params": [cid, p.metric, period], "rows": int(cur is not None) + len(conflicts)}]
     if not cur:
-        why = _unsupported_reason(p.company, p.metric)
-        out["missing"] = (f"{company_name(p.company)} does not report {METRICS[p.metric]['label'].lower()} "
+        why = unsupported_reason(conn, cid, p.metric)
+        out["missing"] = (f"{company['name']} does not report {METRICS[p.metric]['label'].lower()} "
                           f"in its 10-Q data ({why})." if why else
-                          f"No {METRICS[p.metric]['label']} figure for {p.company} in {period}.")
+                          f"No {METRICS[p.metric]['label']} figure for {company['name']} in {period}.")
         return out
     out["figures"].append(cur)
     for c in conflicts:
@@ -120,8 +112,8 @@ def numeric_path(conn, p: ParsedQuestion, period: str, trace: dict) -> dict:
                             f"vs primary {fmt_value(cur['value'], cur['unit'])} (restatement?)")
     if p.compare in ("yoy", "qoq"):
         prev_period = shift_period(period, p.compare)
-        prev, prev_conf = lookup(conn, p.company, p.metric, prev_period)
-        trace["sql"].append({"template": "SQL_LOOKUP", "params": [p.company, p.metric, prev_period], "rows": int(prev is not None)})
+        prev, prev_conf = lookup(conn, cid, p.metric, prev_period)
+        trace["sql"].append({"template": "SQL_LOOKUP", "params": [cid, p.metric, prev_period], "rows": int(prev is not None)})
         if not prev:
             reason = " (Q4 is only in the 10-K, out of scope)" if prev_period.startswith("Q4") else ""
             out["missing"] = f"No comparison figure for {prev_period}{reason}."
@@ -130,16 +122,16 @@ def numeric_path(conn, p: ParsedQuestion, period: str, trace: dict) -> dict:
         for c in prev_conf:
             out["flags"].append(f"Conflict: {figure_locator(c)} reports {fmt_value(c['value'], c['unit'])} "
                                 f"vs primary {fmt_value(prev['value'], prev['unit'])} (restatement?)")
-        ch = dict(conn.execute(SQL_CHANGE, {"cur_id": cur["figure_id"], "prev_id": prev["figure_id"]}).fetchone())
+        ch = conn.execute(SQL_CHANGE, {"cur_id": cur["figure_id"], "prev_id": prev["figure_id"]}).fetchone()
         trace["sql"].append({"template": "SQL_CHANGE", "params": [cur["figure_id"], prev["figure_id"]]})
         out["change"] = {**ch, "from": prev_period, "to": period, "compare": p.compare}
     return out
 
 
-def render_numeric(p: ParsedQuestion, num: dict) -> str:
+def render_numeric(p: ParsedQuestion, company: dict, num: dict) -> str:
     cur = num["figures"][0]
     label = METRICS[p.metric]["label"]
-    s = f"{company_name(p.company)}'s {label.lower()} for {cur['period']} was {fmt_value(cur['value'], cur['unit'])} [F1]."
+    s = f"{company['name']}'s {label.lower()} for {cur['period']} was {fmt_value(cur['value'], cur['unit'])} [F1]."
     if "change" in num:
         ch, prev = num["change"], num["figures"][1]
         direction = "up" if ch["abs_change"] > 0 else "down" if ch["abs_change"] < 0 else "unchanged"
@@ -172,14 +164,14 @@ def _rewrite_query(q: str, p: ParsedQuestion) -> str:
     return f"{metric} {q} increase decrease primarily due to driven by compared with prior year".strip()
 
 
-def retrieve(q: str, p: ParsedQuestion, report_id: int, method: str, trace: dict) -> tuple[list[dict], bool]:
+def retrieve(conn, q: str, p: ParsedQuestion, report_id: int, method: str, trace: dict) -> tuple[list[dict], bool]:
     """Search MD&A first (round 1), then the whole report with a rewritten query (round 2)."""
     th = THRESHOLDS[method]
     query = q
     passages: list[dict] = []
     for rnd in range(1, MAX_ROUNDS + 1):
         section = MDA if rnd == 1 else None
-        hits = search(query, [report_id], method=method, k=TOP_K, section=section)
+        hits = search(conn, query, [report_id], method=method, k=TOP_K, section=section)
         trace.setdefault("search_rounds", []).append(
             {"round": rnd, "query": query, "section": section or "all", "method": method,
              "top_scores": [h["score"] for h in hits]})
@@ -243,8 +235,15 @@ def answer(question: str, method: str = "semantic") -> dict:
     if p.unsupported_reason:
         return done("abstain", f"Out of scope: {p.unsupported_reason}")
     if not p.company:
-        names = ", ".join(f"{c['name']} ({c['ticker']})" for c in COMPANIES)
-        return done("clarify", f"Which company do you mean? I have 10-Q filings for: {names}.")
+        return done("clarify", "Which company do you mean? Please name it or give its ticker.")
+    matches = find_companies(conn, p.company)
+    trace["company_matches"] = [{"company_id": m["company_id"], "name": m["name"], "ticker": m["ticker"]} for m in matches]
+    if not matches:
+        return done("abstain", f"Not enough evidence: no 10-Q filings for '{p.company}' are loaded.")
+    if len(matches) > 1:
+        options = "; ".join(f"{m['name']} ({m['ticker'] or 'CIK ' + str(m['company_id'])})" for m in matches)
+        return done("clarify", f"Which company do you mean by '{p.company}'? Candidates: {options}.")
+    company = matches[0]
     if p.qtype in ("numeric", "both") and not p.metric:
         mets = ", ".join(s["label"].lower() for s in METRICS.values())
         return done("clarify", f"Which figure do you mean? Supported metrics: {mets}.")
@@ -252,18 +251,17 @@ def answer(question: str, method: str = "semantic") -> dict:
     # resolve the period / report
     need_text = p.qtype in ("explanatory", "both")
     if not p.period or p.period == "latest":
-        doc = conn.execute(SQL_LATEST_DOC.format(text_filter="AND d.has_text = 1" if need_text else ""),
-                           {"ticker": p.company}).fetchone()
+        doc = conn.execute(SQL_LATEST_DOC, {"company_id": company["company_id"], "need_text": need_text}).fetchone()
         if not doc:
             return done("abstain", "No filings available for this company.")
         period = doc["period"]
         res["assumptions"].append(
-            f"No period given; assumed the latest available quarter ({period}, filed {doc['date']}).")
+            f"No period given; assumed the latest available quarter ({period}, filed {doc['filed']}).")
     else:
         period = p.period
-        doc = conn.execute(SQL_DOC_FOR_PERIOD, {"ticker": p.company, "period": period}).fetchone()
+        doc = conn.execute(SQL_DOC_FOR_PERIOD, {"company_id": company["company_id"], "period": period}).fetchone()
         if not doc:
-            return done("abstain", f"Not enough evidence: no 10-Q for {company_name(p.company)} covering {period} is loaded.")
+            return done("abstain", f"Not enough evidence: no 10-Q for {company['name']} covering {period} is loaded.")
     trace["period"], trace["report_id"] = period, doc["report_id"]
 
     # 2. route
@@ -278,7 +276,7 @@ def answer(question: str, method: str = "semantic") -> dict:
     # 3a. numeric
     num = None
     if "numeric" in route:
-        num = numeric_path(conn, p, period, trace)
+        num = numeric_path(conn, p, company, period, trace)
         res["flags"] += num["flags"]
         for i, f in enumerate(num["figures"], 1):
             res["figures"].append({"ref": f"F{i}", "value": f["value"], "unit": f["unit"], "period": f["period"],
@@ -288,7 +286,7 @@ def answer(question: str, method: str = "semantic") -> dict:
                 return done("abstain", f"Not enough evidence: {num['missing']}")
             res["flags"].append(num["missing"])
         elif num["figures"]:
-            parts.append(render_numeric(p, num))
+            parts.append(render_numeric(p, company, num))
         if "change" in num:
             res["change"] = num["change"]
 
@@ -296,7 +294,7 @@ def answer(question: str, method: str = "semantic") -> dict:
     if "explanatory" in route:
         if not doc["has_text"]:
             return done("abstain", f"Not enough evidence: the text of the {period} filing is not indexed.")
-        passages, strong = retrieve(question, p, doc["report_id"], method, trace)
+        passages, strong = retrieve(conn, question, p, doc["report_id"], method, trace)
         # 4. check evidence
         if not strong:
             closest = "; ".join(h["locator"] for h in passages[:3])

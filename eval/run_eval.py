@@ -269,9 +269,9 @@ def run_retrieval(k_max: int = 5) -> None:
     for method in ["bm25", "semantic", "hybrid"]:
         ranks = []
         for q in qs:
-            rid = conn.execute("""SELECT report_id FROM documents d JOIN companies c USING(company_id)
-                                  WHERE c.ticker=? AND d.period=?""", (q["company"], q["period"])).fetchone()[0]
-            hits = search(q["question"], [rid], method=method, k=k_max)
+            rid = conn.execute("""SELECT report_id FROM documents d JOIN companies c USING (company_id)
+                                  WHERE c.ticker = %s AND d.period = %s""", (q["company"], q["period"])).fetchone()["report_id"]
+            hits = search(conn, q["question"], [rid], method=method, k=k_max)
             ranks.append(next((i + 1 for i, h in enumerate(hits) if hit(h["text"], q["evidence"])), None))
         n = len(ranks)
         print(f"| {method} | {sum(r == 1 for r in ranks) / n:.2f} | {sum(bool(r) and r <= 3 for r in ranks) / n:.2f} | "
@@ -281,7 +281,7 @@ def run_retrieval(k_max: int = 5) -> None:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", nargs="?", default="numeric", choices=["numeric", "retrieval"])
-    ap.add_argument("--llm", help="LLM preset: claude (default), chatgpt, qwen, qwen-14b, mlx, ollama, openai")
+    ap.add_argument("--llm", help="LLM preset: claude (default), hkust, chatgpt, qwen, qwen-14b, mlx, ollama, openai")
     ap.add_argument("--model", help="override the preset's model id")
     ap.add_argument("--only", choices=["system", "baseline"], help="run just one side")
     ap.add_argument("--fresh", action="store_true", help="ignore saved checkpoints and rerun everything")

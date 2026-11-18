@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from functools import lru_cache
-from pathlib import Path
 
 from . import llm
 from .config import DATA_DIR
@@ -21,29 +20,22 @@ def _doc_text(file_path: str) -> str:
     return filing_plaintext((DATA_DIR / file_path).read_text(errors="ignore"))  # stored relative to data/
 
 
-def find_document(ticker: str | None, period: str | None) -> dict | None:
-    conn = connect()
-    if ticker and period:
-        row = conn.execute("""SELECT d.* FROM documents d JOIN companies c USING(company_id)
-                              WHERE c.ticker=? AND d.period=? AND d.has_text=1""", (ticker, period)).fetchone()
-    elif ticker:
-        row = conn.execute("""SELECT d.* FROM documents d JOIN companies c USING(company_id)
-                              WHERE c.ticker=? AND d.has_text=1 ORDER BY d.period_end DESC LIMIT 1""", (ticker,)).fetchone()
-    else:
-        row = None
-    conn.close()
-    return dict(row) if row else None
+SQL_DOCUMENT = """
+SELECT d.* FROM documents d JOIN companies c USING (company_id)
+WHERE lower(c.ticker) = lower(%(ticker)s) AND d.period = %(period)s AND d.has_text
+"""
 
 
-def baseline_answer(question: str, ticker: str | None = None, period: str | None = None) -> dict:
-    """ticker/period select the 'correct' document (from the answer key). Without them the
-    baseline infers the company with the rule parser (still generous: it gets the right filing)."""
+def find_document(ticker: str, period: str) -> dict | None:
+    with connect() as conn:
+        return conn.execute(SQL_DOCUMENT, {"ticker": ticker, "period": period}).fetchone()
+
+
+def baseline_answer(question: str, ticker: str, period: str) -> dict:
+    """ticker and period select the correct filing (from the answer key, or the CLI flags).
+    This makes the baseline generous: it always gets the right document."""
     t0 = time.time()
-    if ticker is None:  # CLI use: pick the filing from the names in the question
-        from .parse import find_company, find_period
-        ticker, period = find_company(question), find_period(question)
-        period = None if period == "latest" else period
-    doc = find_document(ticker, period) if ticker else None
+    doc = find_document(ticker, period)
     usage = llm.Usage()
     if not llm.available():
         return {"question": question, "status": "skipped", "answer": f"[baseline skipped: {llm.model_name()} not available]",
