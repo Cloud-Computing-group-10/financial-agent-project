@@ -14,6 +14,7 @@ from . import llm
 from .companies import find_companies
 from .config import MAX_ROUNDS, METRICS, MIN_PASSAGES, THRESHOLDS, TOP_K
 from .db import connect
+from .docqa import answer_from_document
 from .parse import ParsedQuestion, parse_question
 from .search import MDA, search
 
@@ -46,13 +47,20 @@ WHERE cur.figure_id = %(cur_id)s AND prev.figure_id = %(prev_id)s
 SQL_LATEST_DOC = """
 SELECT * FROM documents
 WHERE company_id = %(company_id)s AND (has_text OR NOT %(need_text)s)
+  AND form_type = '10-Q' AND accession NOT LIKE 'financebench:%%'
 ORDER BY period_end DESC LIMIT 1
 """
 
+# A filing for a period ('Q2 2023', 'FY 2019'). The SEC 10-Q of our bulk data comes before a
+# FinanceBench copy of the same report.
 SQL_DOC_FOR_PERIOD = """
 SELECT * FROM documents
 WHERE company_id = %(company_id)s AND period = %(period)s
+ORDER BY (accession LIKE 'financebench:%%'), has_text DESC
+LIMIT 1
 """
+
+SQL_DOC_BY_ACCESSION = "SELECT * FROM documents WHERE accession = %(accession)s"
 
 SQL_UNSUPPORTED = """
 SELECT unsupported_reason FROM metric_tags WHERE company_id = %(company_id)s AND metric = %(metric)s
@@ -229,7 +237,16 @@ def compose_explanation(q: str, passages: list[dict], num: dict | None, usage: l
 
 
 # ============================================================================ main entry
-def answer(question: str, method: str = "semantic") -> dict:
+def structured(p: ParsedQuestion) -> bool:
+    """Questions the structured path answers: one of our metrics (or a "why") for a 10-Q quarter.
+    Everything else (ratios, full years, other line items, text questions) goes to document QA."""
+    quarter = p.period is None or p.period == "latest" or p.period.startswith("Q")
+    return not p.unsupported_reason and quarter and (p.metric is not None or p.qtype == "explanatory")
+
+
+def answer(question: str, method: str = "semantic", document: str | None = None) -> dict:
+    """document: accession of the filing to use (evaluation runs on FinanceBench give the document,
+    as in its "single document" setting). Without it the filing is found from the question."""
     t0 = time.time()
     usage = llm.Usage()
     trace: dict = {"method": method}
@@ -254,37 +271,50 @@ def answer(question: str, method: str = "semantic") -> dict:
         return done("error", f"LLM call failed ({llm.model_name()}): {str(e)[:200]}")
     trace["parse"] = p.model_dump()
 
-    if p.unsupported_reason:
-        return done("abstain", f"Out of scope: {p.unsupported_reason}")
-    if not p.company:
-        return done("clarify", "Which company do you mean? Please name it or give its ticker.")
-    matches = find_companies(conn, p.company)
-    trace["company_matches"] = [{"company_id": m["company_id"], "name": m["name"], "ticker": m["ticker"]} for m in matches]
-    if not matches:
-        return done("abstain", f"Not enough evidence: no 10-Q filings for '{p.company}' are loaded.")
-    if len(matches) > 1:
-        options = "; ".join(f"{m['name']} ({m['ticker'] or 'CIK ' + str(m['company_id'])})" for m in matches)
-        return done("clarify", f"Which company do you mean by '{p.company}'? Candidates: {options}.")
-    company = matches[0]
-    if p.qtype in ("numeric", "both") and not p.metric:
-        mets = ", ".join(s["label"].lower() for s in METRICS.values())
-        return done("clarify", f"Which figure do you mean? Supported metrics: {mets}.")
-
-    # resolve the period / report
-    need_text = p.qtype in ("explanatory", "both")
-    if not p.period or p.period == "latest":
-        doc = conn.execute(SQL_LATEST_DOC, {"company_id": company["company_id"], "need_text": need_text}).fetchone()
-        if not doc:
-            return done("abstain", "No filings available for this company.")
-        period = doc["period"]
-        res["assumptions"].append(
-            f"No period given; assumed the latest available quarter ({period}, filed {doc['filed']}).")
+    # 2. company and filing
+    if document:
+        doc = conn.execute(SQL_DOC_BY_ACCESSION, {"accession": document}).fetchone()
+        company = conn.execute("SELECT * FROM companies WHERE company_id = %s", (doc["company_id"],)).fetchone()
     else:
-        period = p.period
-        doc = conn.execute(SQL_DOC_FOR_PERIOD, {"company_id": company["company_id"], "period": period}).fetchone()
-        if not doc:
-            return done("abstain", f"Not enough evidence: no 10-Q for {company['name']} covering {period} is loaded.")
+        if not p.company:
+            return done("clarify", "Which company do you mean? Please name it or give its ticker.")
+        matches = find_companies(conn, p.company)
+        trace["company_matches"] = [{"company_id": m["company_id"], "name": m["name"], "ticker": m["ticker"]}
+                                    for m in matches]
+        if not matches:
+            return done("abstain", f"Not enough evidence: no filings for '{p.company}' are loaded.")
+        if len(matches) > 1:
+            options = "; ".join(f"{m['name']} ({m['ticker'] or 'CIK ' + str(m['company_id'])})" for m in matches)
+            return done("clarify", f"Which company do you mean by '{p.company}'? Candidates: {options}.")
+        company = matches[0]
+        need_text = p.qtype in ("explanatory", "both") or not structured(p)
+        if not p.period or p.period == "latest":
+            doc = conn.execute(SQL_LATEST_DOC, {"company_id": company["company_id"], "need_text": need_text}).fetchone()
+            if not doc:
+                return done("abstain", "No filings available for this company.")
+            res["assumptions"].append(
+                f"No period given; assumed the latest available quarter ({doc['period']}, filed {doc['filed']}).")
+        else:
+            doc = conn.execute(SQL_DOC_FOR_PERIOD, {"company_id": company["company_id"], "period": p.period}).fetchone()
+            if not doc:
+                why = f" ({p.unsupported_reason})" if p.unsupported_reason else ""
+                return done("abstain", f"Not enough evidence: no filing of {company['name']} for {p.period} is loaded{why}.")
+    period = doc["period"]
     trace["period"], trace["report_id"] = period, doc["report_id"]
+
+    # document QA: everything the structured data cannot answer
+    if (document and document.startswith("financebench:")) or not structured(p):
+        trace["route"] = ["document"]
+        if not doc["has_text"]:
+            return done("abstain", f"Not enough evidence: the text of {doc['title']} is not indexed.")
+        try:
+            out = answer_from_document(conn, question, doc["report_id"], usage, trace, search_terms=p.search_terms)
+        except Exception as e:
+            usage.log.append({"step": "docqa", "error": str(e)[:300]})
+            return done("error", f"LLM call failed: {str(e)[:200]}")
+        res["flags"] += out["flags"]
+        res["citations"] = out["citations"]
+        return done(out["status"], out["text"])
 
     # 2. route
     route = {"numeric": ["numeric"], "explanatory": ["explanatory"], "both": ["numeric", "explanatory"]}[p.qtype]

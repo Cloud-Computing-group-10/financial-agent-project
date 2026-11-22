@@ -7,3 +7,5 @@ data/raw/
 data/bulk/
 eval/results/
 .claude/
+data/financebench/pdfs/
+data/eval_filings/

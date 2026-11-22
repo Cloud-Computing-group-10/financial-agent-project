@@ -169,7 +169,11 @@ def filing_chunks(html: str) -> list[dict]:
 
 
 def read_filing(path: Path) -> str:
-    """A downloaded filing as text; the bulk download stores them gzipped (.htm.gz)."""
+    """A downloaded filing as text; the bulk download stores them gzipped (.htm.gz), and the
+    FinanceBench documents are PDFs (their page text)."""
+    if path.suffix == ".pdf":
+        from .pdf_docs import page_texts
+        return "\n".join(page_texts(path))
     data = path.read_bytes()
     if path.suffix == ".gz":
         data = gzip.decompress(data)

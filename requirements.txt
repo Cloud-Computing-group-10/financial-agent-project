@@ -16,3 +16,5 @@ pyarrow                 # reads the Parquet output of the Spark job
 
 # Development
 pytest
+pypdf[crypto]>=5    # FinanceBench documents are PDFs
+fonttools          # lets pypdf read all PDF fonts

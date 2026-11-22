@@ -61,11 +61,15 @@ def company_rows(path: str, text: str, tickers: dict, years: tuple[int, int]):
 
 
 def read_tickers(spark: SparkSession, path: str | None) -> dict[int, str]:
-    """SEC company_tickers.json: {"0": {"cik_str": 320193, "ticker": "AAPL", ...}, ...}."""
+    """SEC company_tickers.json: {"0": {"cik_str": 320193, "ticker": "AAPL", ...}, ...}.
+    A company with several share classes is listed once per ticker, main ticker first."""
     if not path:
         return {}
     text = "".join(spark.sparkContext.textFile(path).collect())
-    return {int(v["cik_str"]): v["ticker"] for v in json.loads(text).values()}
+    tickers: dict[int, str] = {}
+    for v in json.loads(text).values():
+        tickers.setdefault(int(v["cik_str"]), v["ticker"])
+    return tickers
 
 
 def write_tables(spark: SparkSession, records, output: str) -> dict[str, int]:

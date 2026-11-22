@@ -31,6 +31,7 @@ class ParsedQuestion(BaseModel):
     qtype: QType
     compare: Compare = "none"
     unsupported_reason: Optional[str] = None
+    search_terms: Optional[str] = None  # used by document QA to find the passages
 
     @field_validator("compare", mode="before")
     @classmethod
@@ -41,10 +42,11 @@ class ParsedQuestion(BaseModel):
 _SYSTEM = """Convert a question about a company's quarterly results into JSON. Data: SEC 10-Q filings only.
 company: the company name or ticker exactly as written in the question; null if none is named.
 metric: one of {metrics}; null if none fits.
-period: "Q<n> <yyyy>"; "latest" for last/most recent quarter; null if not stated.
+period: "Q<n> <yyyy>" for a quarter, "FY <yyyy>" for a full (fiscal) year; "latest" for last/most recent quarter; null if not stated.
 qtype: numeric (what/how much), explanatory (why/how), both (amount AND reason).
 compare: yoy (vs same quarter a year earlier, or plain "change/growth"), qoq (vs previous quarter), none.
-unsupported_reason: short reason if it asks for annual/10-K or Q4 data, a ratio/margin %, or segment numbers; else null."""
+unsupported_reason: short reason if it asks for annual/10-K or Q4 data, a ratio/margin %, or segment numbers; else null.
+search_terms: a short search query in the words a filing uses for what is needed (line items, statement or section names), e.g. "purchases of property, plant and equipment cash flow statement"."""
 
 
 def _system_prompt() -> str:
@@ -70,6 +72,10 @@ def find_period(q: str) -> str | None:
     m = re.search(r"\b(first|second|third|fourth|1st|2nd|3rd|4th) quarter(?: of)?(?: fiscal)? (20\d\d)\b", ql)
     if m:
         return f"Q{_ORD[m.group(1)]} {m.group(2)}"
+    m = re.search(r"\b(?:fy\s*'?|fiscal(?: year)?\s+|full[- ]year\s+)(20\d\d|\d\d)\b", ql)
+    if m:
+        y = m.group(1)
+        return f"FY {y if len(y) == 4 else '20' + y}"
     if re.search(r"\b(last|latest|most recent|recent|this|current) quarter\b", ql):
         return "latest"
     return None
@@ -100,7 +106,7 @@ def parse_question(q: str, usage: llm.Usage) -> ParsedQuestion:
         p.company = None
     if p.metric not in METRICS:
         p.metric = None
-    if p.period and p.period != "latest" and not re.fullmatch(r"Q[1-4] 20\d\d", p.period):
+    if p.period and p.period != "latest" and not re.fullmatch(r"(Q[1-4]|FY) 20\d\d", p.period):
         p.period = find_period(p.period)
     if not p.unsupported_reason:
         p.unsupported_reason = scope_violation(q)

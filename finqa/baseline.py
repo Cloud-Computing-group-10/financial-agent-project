@@ -10,7 +10,7 @@ from .config import DATA_DIR
 from .db import connect
 from .text import filing_plaintext, read_filing
 
-INSTRUCTION = """Answer the question about the company's results using only the SEC 10-Q filing provided.
+INSTRUCTION = """Answer the question about the company using only the SEC filing provided.
 Cite the source of every number and every explanatory claim (statement or section, line item, period).
 If the filing does not contain enough evidence, or the question is ambiguous, say so instead of guessing."""
 
@@ -26,16 +26,19 @@ WHERE lower(c.ticker) = lower(%(ticker)s) AND d.period = %(period)s AND d.has_te
 """
 
 
-def find_document(ticker: str, period: str) -> dict | None:
+def find_document(ticker: str | None = None, period: str | None = None, accession: str | None = None) -> dict | None:
     with connect() as conn:
+        if accession:
+            return conn.execute("SELECT * FROM documents WHERE accession = %s", (accession,)).fetchone()
         return conn.execute(SQL_DOCUMENT, {"ticker": ticker, "period": period}).fetchone()
 
 
-def baseline_answer(question: str, ticker: str, period: str) -> dict:
-    """ticker and period select the correct filing (from the answer key, or the CLI flags).
-    This makes the baseline generous: it always gets the right document."""
+def baseline_answer(question: str, ticker: str | None = None, period: str | None = None,
+                    accession: str | None = None) -> dict:
+    """ticker and period (or the accession number) select the correct filing (from the answer key,
+    or the CLI flags). This makes the baseline generous: it always gets the right document."""
     t0 = time.time()
-    doc = find_document(ticker, period)
+    doc = find_document(ticker, period, accession)
     usage = llm.Usage()
     if not llm.available():
         return {"question": question, "status": "skipped", "answer": f"[baseline skipped: {llm.model_name()} not available]",
