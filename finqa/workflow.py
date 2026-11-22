@@ -26,6 +26,14 @@ WHERE d.company_id = %(company_id)s AND f.metric = %(metric)s AND f.period = %(p
 ORDER BY (d.period = f.period) DESC, d.filed ASC
 """
 
+# The prior-year quarter as shown in the same 10-Q (its comparison column). Companies restate prior
+# periods (e.g. after a spin-off), and the year-over-year change should compare like with like.
+SQL_SAME_FILING = """
+SELECT f.*, d.title, d.accession, d.url, d.period AS doc_period, d.filed
+FROM figures f JOIN documents d USING (report_id)
+WHERE f.report_id = %(report_id)s AND f.metric = %(metric)s AND f.period = %(period)s AND f.duration = '3M'
+"""
+
 SQL_CHANGE = """
 SELECT cur.value AS cur_value, prev.value AS prev_value,
        cur.value - prev.value AS abs_change,
@@ -89,6 +97,19 @@ def lookup(conn, company_id: int, metric: str, period: str) -> tuple[Optional[di
     return primary, conflicts
 
 
+def previous_figure(conn, company_id: int, metric: str, period: str, cur: dict,
+                    compare: str) -> tuple[Optional[dict], list[dict]]:
+    """The comparison figure. Year over year: the prior-year column of the same 10-Q, so a restated
+    prior year is used the way the company compares it; otherwise (or if that column is missing)
+    the filing that covers the period."""
+    if compare == "yoy":
+        same = conn.execute(SQL_SAME_FILING, {"report_id": cur["report_id"], "metric": metric,
+                                              "period": period}).fetchone()
+        if same:
+            return same, []
+    return lookup(conn, company_id, metric, period)
+
+
 def unsupported_reason(conn, company_id: int, metric: str) -> str | None:
     """Why a company has no figure for a metric (from the tag check at ingestion), if known."""
     row = conn.execute(SQL_UNSUPPORTED, {"company_id": company_id, "metric": metric}).fetchone()
@@ -112,8 +133,9 @@ def numeric_path(conn, p: ParsedQuestion, company: dict, period: str, trace: dic
                             f"vs primary {fmt_value(cur['value'], cur['unit'])} (restatement?)")
     if p.compare in ("yoy", "qoq"):
         prev_period = shift_period(period, p.compare)
-        prev, prev_conf = lookup(conn, cid, p.metric, prev_period)
-        trace["sql"].append({"template": "SQL_LOOKUP", "params": [cid, p.metric, prev_period], "rows": int(prev is not None)})
+        prev, prev_conf = previous_figure(conn, cid, p.metric, prev_period, cur, p.compare)
+        trace["sql"].append({"template": "SQL_SAME_FILING / SQL_LOOKUP", "params": [cid, p.metric, prev_period],
+                             "rows": int(prev is not None)})
         if not prev:
             reason = " (Q4 is only in the 10-K, out of scope)" if prev_period.startswith("Q4") else ""
             out["missing"] = f"No comparison figure for {prev_period}{reason}."

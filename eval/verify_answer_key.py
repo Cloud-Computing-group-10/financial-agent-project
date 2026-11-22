@@ -34,7 +34,7 @@ LABELS = {
     "gross_profit": r"gross profit",
     "sga": r"selling|general and administrative",
     "rd_expense": r"research",
-    "operating_income": r"operating (income|profit)|income from operations",
+    "operating_income": r"operating (income|profit|earnings)|income from operations",
     "pretax_income": r"before (provision for )?(income )?tax",
     "net_income": r"net (income|earnings|loss)|profit( \(loss\))? attributable|profit$",
     "eps_diluted": r"diluted|assuming dilution",
