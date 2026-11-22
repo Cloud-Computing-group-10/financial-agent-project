@@ -297,9 +297,9 @@ They show which of our parts actually change accuracy or the error rate.
 
 ### 16.8 Cloud and system performance
 
-Run on the deployed system (AWS Learner Lab), so they complement the quality results above:
+Run on the deployed system (AWS EC2, section 18), so they complement the quality results above:
 1. **API load test:** latency (median and p95) and throughput of `POST /ask` at 1, 10 and 50 concurrent users (locust), for numeric and explanatory questions separately. LLM time and our own processing time are reported separately.
-2. **Spark ingestion scaling:** job time and throughput for the SEC bulk XBRL data at increasing data sizes (e.g. 50, 500 and all companies) and 1, 2 and 4 workers on EMR.
+2. **Spark ingestion scaling:** passages per second of the text job (split + embed) on one batch of 2,000 filings with 1, 2, 4, 8 and 16 cores (Spark local mode on one instance), plus the measured time of the full run over every filer.
 
 ### 16.9 Budget and run order
 
@@ -321,7 +321,7 @@ Run on the deployed system (AWS Learner Lab), so they complement the quality res
 3. 10-K questions need full fiscal years. Supporting them means adding a 12-month duration (`FY 2023`) to the period rules in `finqa/facts.py` and relaxing the 10-K scope rule. Decide this once the in-scope count is known.
 4. Reported separately from our own verified test set (16.4), because its answer key was made by others with different conventions.
 
-## **17\. Cloud architecture (v3, 17 November)**
+## **17\. Cloud architecture (v3, 17 November; deployment updated in section 18)**
 
 Replaces 15.6. Built and tested locally with Docker; deployment target is AWS Academy Learner Lab ($100 credits).
 
@@ -334,3 +334,15 @@ Replaces 15.6. Built and tested locally with Docker; deployment target is AWS Ac
 7. **Deployment.** One Docker image; Docker Compose runs Postgres, the API and Streamlit on one EC2 instance. Raw files are kept in S3. Step-by-step setup is in `docs/CLOUD.md`.
 8. **Quality checks.** pytest (fact rules, parser rules, database loading, company lookup, numeric path with a fixed parse, the frontend page) runs in GitHub Actions against a real Postgres, plus a Docker build.
 9. **Limitations.** Quarters are calendar quarters, so for non-calendar fiscal years "Q2" means April-June, not the company's fiscal Q2. Tag choices for bulk companies are not verified against their filing documents.
+
+## **18\. Every filer's 10-Q text, on one EC2 instance (22 November)**
+
+Replaces the deployment parts of section 17 (Learner Lab, EMR). The cloud is a normal AWS account ($100 credits), which has no 4-hour session limit.
+
+1. **Scope.** Numbers and 10-Q text for every SEC filer, 10-Qs from 2019 on (expected roughly 150,000 filings and 10-15 million passages; the real counts come from the run).
+2. **Text pipeline.** `finqa/filings.py` lists every 10-Q in the documents table (main document name from SEC's `submissions.zip`) and downloads them at 8 requests per second, gzipped, in batches of 2,000. `spark/text_job.py` splits and embeds each finished batch with the same code as the pilot ingest (`finqa/text.py`, `finqa/embed.py`), one task per core, and writes Parquet. `load_bulk text` adds the passages to Postgres. Every step skips finished work, so the pipeline can be stopped and restarted, and Spark works on finished batches while the download continues (`cloud/run_pipeline.sh`).
+3. **One large instance instead of an EMR cluster.** The SEC download limit is the same for any number of machines, and embedding is CPU work that Spark spreads over the cores of one machine just as well. One instance (c7i.4xlarge, 16 vCPU) avoids cluster setup; after the pipeline it is resized to a small type for the app. S3 keeps a copy of all data.
+4. **Search scales by design.** Passage search always filters to one filing first (a B-tree index on `report_id`), then compares about 200 vectors, so a passages table of tens of GB needs disk, not memory, and no approximate vector index.
+5. **Measured on the pilot (laptop, Docker, 4 cores):** 117 10-Qs (5 companies, 2019-2025) gave 22,328 passages (about 190 per filing for large companies) in 7.5 minutes; download 16 s. Embedding is the slow step. Batches of 32 passages keep each worker below about 0.5 GB of memory.
+6. **Limitations.** Small filers have shorter, messier filings, so "why" answers for them will abstain more often. Tag choices for bulk companies are not verified against their documents; a random sample of about 30 figures is checked by hand for the report.
+

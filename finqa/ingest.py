@@ -25,7 +25,7 @@ from . import text as textmod
 from .config import PILOT_COMPANIES, PILOT_YEARS, RAW_DIR, SEC_USER_AGENT, TEXT_YEARS
 from .db import connect, init_db, load_facts
 from .facts import extract_company, quarter_label
-from .search import embed, passage_text
+from .embed import embed, passage_text
 
 HEADERS = {"User-Agent": SEC_USER_AGENT, "Accept-Encoding": "gzip, deflate"}
 
@@ -97,11 +97,7 @@ def load_text(conn, ticker: str) -> int:
         if not doc:
             continue  # a filing without usable facts has no documents row
 
-        chunks, seen = [], set()
-        for ch in textmod.filing_chunks(filing["path"].read_text(errors="ignore")):
-            if ch["text"] not in seen:  # highlights are often repeated word for word
-                seen.add(ch["text"])
-                chunks.append(ch)
+        chunks = textmod.filing_chunks(textmod.read_filing(filing["path"]))
         vectors = embed([passage_text(ch["heading"], ch["text"]) for ch in chunks])
         with conn.cursor() as cur:
             cur.executemany(

@@ -8,7 +8,7 @@ from functools import lru_cache
 from . import llm
 from .config import DATA_DIR
 from .db import connect
-from .text import filing_plaintext
+from .text import filing_plaintext, read_filing
 
 INSTRUCTION = """Answer the question about the company's results using only the SEC 10-Q filing provided.
 Cite the source of every number and every explanatory claim (statement or section, line item, period).
@@ -17,7 +17,7 @@ If the filing does not contain enough evidence, or the question is ambiguous, sa
 
 @lru_cache(maxsize=32)
 def _doc_text(file_path: str) -> str:
-    return filing_plaintext((DATA_DIR / file_path).read_text(errors="ignore"))  # stored relative to data/
+    return filing_plaintext(read_filing(DATA_DIR / file_path))  # stored relative to data/
 
 
 SQL_DOCUMENT = """

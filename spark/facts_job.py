@@ -1,7 +1,8 @@
 """Spark job: turn the SEC bulk XBRL facts (every filer) into Parquet tables for Postgres.
 
-Locally:
-  python spark/facts_job.py --input data/raw --output data/bulk/parquet
+On one machine (Spark uses N cores; leave out --cores to use all of them):
+  python spark/facts_job.py --input data/bulk/companyfacts --output data/bulk/parquet \\
+      --tickers data/bulk/company_tickers.json --cores 16
 On EMR (see docs/CLOUD.md):
   spark-submit --py-files finqa.zip spark/facts_job.py --input s3://BUCKET/companyfacts \\
       --output s3://BUCKET/parquet --tickers s3://BUCKET/company_tickers.json
@@ -10,7 +11,7 @@ Input: a folder of companyfacts JSON files, one per company (the unzipped compan
 Spark reads the files in parallel and runs finqa.facts.extract_company() on each one, the same
 code the pilot ingest uses. The output is one Parquet dataset per table, plus two small reports
 made with DataFrame aggregations: metric coverage and restatement conflicts.
-Load the result with:  python -m finqa.load_bulk data/bulk/parquet
+Load the result with:  python -m finqa.load_bulk facts data/bulk/parquet
 """
 from __future__ import annotations
 
@@ -107,14 +108,23 @@ def main() -> None:
     parser.add_argument("--tickers", help="SEC company_tickers.json, to add tickers to the companies")
     parser.add_argument("--first-year", type=int, default=2019, help="first 10-Q year to keep")
     parser.add_argument("--last-year", type=int, default=2100, help="last 10-Q year to keep")
+    parser.add_argument("--cores", type=int, help="run locally on this many cores (default: all, or the cluster)")
+    parser.add_argument("--driver-memory", default="8g")
     args = parser.parse_args()
 
     start = time.time()
-    spark = SparkSession.builder.appName("finqa-facts").getOrCreate()
+    builder = (SparkSession.builder.appName("finqa-facts").config("spark.driver.memory", args.driver_memory)
+               .config("spark.ui.showConsoleProgress", "false"))
+    if args.cores:  # local mode: the Python workers use this same Python environment
+        os.environ.setdefault("PYSPARK_PYTHON", sys.executable)
+        builder = builder.master(f"local[{args.cores}]")
+    spark = builder.getOrCreate()
     tickers = spark.sparkContext.broadcast(read_tickers(spark, args.tickers))
     years = (args.first_year, args.last_year)
 
-    files = spark.sparkContext.wholeTextFiles(f"{args.input.rstrip('/')}/*.json")
+    # wholeTextFiles makes only 2 partitions unless told otherwise; ask for several per core.
+    files = spark.sparkContext.wholeTextFiles(f"{args.input.rstrip('/')}/*.json",
+                                              minPartitions=spark.sparkContext.defaultParallelism * 4)
     records = files.flatMap(lambda f: company_rows(f[1], tickers.value, years)).cache()
     counts = write_tables(spark, records, args.output)
     write_reports(spark, args.output)

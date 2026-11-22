@@ -1,16 +1,21 @@
-# One image for the API, the frontend and ingestion; docker-compose.yml picks the command.
+# One image for the API, the frontend, ingestion and the Spark jobs; docker-compose.yml picks the command.
 #   docker build -t finqa .
 FROM python:3.12-slim
 WORKDIR /app
 ENV PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1 FASTEMBED_CACHE_PATH=/app/.fastembed
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
+# Java runs Spark (local mode, using every core of the machine).
+RUN apt-get update && apt-get install -y --no-install-recommends default-jre-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt requirements-spark.txt ./
+RUN pip install -r requirements.txt -r requirements-spark.txt
 
 # Bake the embedding model into the image, so containers never download it at runtime.
 RUN python -c "from fastembed import TextEmbedding; TextEmbedding('sentence-transformers/all-MiniLM-L6-v2')"
 
 COPY finqa/ finqa/
+COPY spark/ spark/
 COPY frontend/ frontend/
 COPY eval/ eval/
 COPY api.py .

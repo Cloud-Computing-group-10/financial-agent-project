@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install Docker and Docker Compose on a fresh Amazon Linux 2023 EC2 instance.
+# Install Docker and Docker Compose on a fresh Amazon Linux 2023 EC2 instance (the AWS CLI is already there).
 #   bash cloud/ec2_setup.sh      (then log out and in again, so your user can run docker)
 set -euo pipefail
 

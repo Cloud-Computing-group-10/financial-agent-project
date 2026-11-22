@@ -7,12 +7,10 @@ scores, never on the LLM's own opinion (plan section 9).
 from __future__ import annotations
 
 import re
-from functools import lru_cache
 
-import numpy as np
 from rank_bm25 import BM25Okapi
 
-from .config import EMBED_MODEL
+from .embed import embed, passage_text
 
 METHODS = ("semantic", "bm25", "hybrid")
 MDA = "Part I Item 2."  # section label of Management's Discussion and Analysis
@@ -35,22 +33,6 @@ ORDER BY c.chunk_id
 
 def tokenize(text: str) -> list[str]:
     return [t for t in _TOKEN.findall(text.lower()) if t not in STOP]
-
-
-@lru_cache(maxsize=1)
-def _model():
-    from fastembed import TextEmbedding
-    return TextEmbedding(EMBED_MODEL)
-
-
-def embed(texts: list[str]) -> np.ndarray:
-    """One normalised vector per text (MiniLM, 384 dimensions, runs on the CPU)."""
-    return np.array(list(_model().embed(texts)), dtype=np.float32)
-
-
-def passage_text(heading: str | None, text: str) -> str:
-    """What gets embedded and keyword-indexed: the heading path gives the passage its context."""
-    return f"{heading}\n{text}" if heading else text
 
 
 def search(conn, query: str, report_ids: list[int], method: str = "semantic", k: int = 5,

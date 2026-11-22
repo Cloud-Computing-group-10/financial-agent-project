@@ -1,3 +1,3 @@
-# Only for running the Spark job locally (EMR already has Spark).
+# Spark jobs (spark/), run on one machine in local mode; also installed in the Docker image.
 pyspark>=4.0
 pandas<3   # PySpark 4 does not support pandas 3 yet

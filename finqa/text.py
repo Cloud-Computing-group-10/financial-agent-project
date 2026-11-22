@@ -1,8 +1,10 @@
 """Filing HTML -> sectioned text chunks (plan Layer 2)."""
 from __future__ import annotations
 
+import gzip
 import re
 import warnings
+from pathlib import Path
 
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 
@@ -157,7 +159,21 @@ def _mostly_numeric(text: str) -> bool:
 
 
 def filing_chunks(html: str) -> list[dict]:
-    return chunk(sectionize(html_to_lines(html)))
+    """The passages of one 10-Q, without exact repeats (highlights are often repeated word for word)."""
+    chunks, seen = [], set()
+    for ch in chunk(sectionize(html_to_lines(html))):
+        if ch["text"] not in seen:
+            seen.add(ch["text"])
+            chunks.append(ch)
+    return chunks
+
+
+def read_filing(path: Path) -> str:
+    """A downloaded filing as text; the bulk download stores them gzipped (.htm.gz)."""
+    data = path.read_bytes()
+    if path.suffix == ".gz":
+        data = gzip.decompress(data)
+    return data.decode("utf-8", errors="ignore")
 
 
 def filing_plaintext(html: str) -> str:

@@ -11,6 +11,13 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("FINQA_DATA_DIR", ROOT / "data"))
 RAW_DIR = DATA_DIR / "raw"  # original SEC files (source of truth); everything in Postgres is rebuilt from them
 
+# Every SEC filer (docs/CLOUD.md). Layout under data/bulk:
+#   companyfacts/  submissions.zip  company_tickers.json     SEC bulk downloads
+#   parquet/                                                 Spark facts job output
+#   text/manifest.csv  text/raw/batch=NNNN/  text/chunks/batch=NNNN/   10-Q text pipeline
+BULK_DIR = DATA_DIR / "bulk"
+TEXT_DIR = BULK_DIR / "text"
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://finqa:finqa@localhost:5432/finqa")
 
 # SEC asks automated clients to identify themselves. Set your own contact in the environment.
@@ -121,7 +128,7 @@ LLM_EFFORT = os.environ.get("FINQA_EFFORT", "low")  # parsing/explaining are sim
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"  # run locally with fastembed (ONNX, CPU)
 EMBED_DIM = 384
 TOP_K = 5
-MAX_ROUNDS = 2
+MAX_ROUNDS = 2 
 MIN_PASSAGES = 2
 # Per-method thresholds (to be calibrated on a dev set -- see plan 15.3).
 THRESHOLDS = {

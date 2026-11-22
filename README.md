@@ -19,10 +19,12 @@ QUERY PATH (every question, ~2 s)
 
 DATA PATH (batch)
   pilot:  SEC files for 5 companies ──▶ python -m finqa.ingest ──▶ Postgres (numbers + 10-Q text)
-  bulk:   SEC companyfacts.zip (every filer) ──▶ Spark (spark/facts_job.py) ──▶ Parquet ──▶ python -m finqa.load_bulk ──▶ Postgres
+  bulk numbers: SEC companyfacts.zip (every filer) ──▶ Spark (spark/facts_job.py) ──▶ Parquet ──▶ load_bulk facts ──▶ Postgres
+  bulk text:    submissions.zip ──▶ finqa.filings (list + download every 10-Q) ──▶ Spark (spark/text_job.py:
+                split + embed) ──▶ Parquet ──▶ load_bulk text ──▶ Postgres
 ```
 
-Locally everything runs with Docker Compose. In the cloud (AWS Learner Lab) the same Compose file runs on one EC2 instance, the raw files live in S3, and the Spark job runs on EMR. See `docs/CLOUD.md`.
+Locally everything runs with Docker Compose. In the cloud the same Compose file runs on one large EC2 instance: Spark in local mode on all its cores, Postgres, the API and the frontend, with a copy of the data in S3. See `docs/CLOUD.md`.
 
 
 ## 2. Folder overview
@@ -35,7 +37,9 @@ finqa/                     all the system code
   facts.py                 XBRL facts -> figure rows (period rules, tag choice); used by ingest AND Spark
   db.py                    Postgres schema and bulk loading
   ingest.py                pilot ingestion: download, figures, 10-Q text + embeddings
-  load_bulk.py             loads the Spark output into Postgres
+  filings.py               list of every filer's 10-Qs (from submissions.zip) + resumable download
+  load_bulk.py             loads the Spark output (numbers and passages) into Postgres
+  embed.py                 passage and question embeddings (MiniLM via fastembed)
   companies.py             finds the company a question is about (ticker, alias, name)
   text.py                  turns 10-Q HTML into sections and passages
   search.py                passage search (keyword / semantic / hybrid)
@@ -44,12 +48,14 @@ finqa/                     all the system code
   workflow.py              steps 2-5: lookup, checks, answer with sources
   baseline.py              the baseline: whole 10-Q + question to the LLM
   cli.py                   command line entry point
-spark/facts_job.py         Spark job over the SEC bulk XBRL file
+spark/facts_job.py         Spark job: SEC bulk XBRL file -> figures
+spark/text_job.py          Spark job: downloaded 10-Qs -> passages + embeddings
+cloud/                     scripts for the EC2 instance (setup, bulk download, whole pipeline, S3 copy)
 tests/                     pytest tests (run in GitHub Actions on every push)
 eval/                      evaluation (see section 8)
 docker-compose.yml         Postgres + API + frontend
-Dockerfile                 one image for API, frontend and ingestion
-docs/CLOUD.md              how to run it on AWS (S3, EC2, EMR)
+Dockerfile                 one image for API, frontend, ingestion and Spark
+docs/CLOUD.md              how to run it on AWS (EC2 + S3)
 data/raw/                  original SEC files (not in git, downloaded by ingestion)
 ```
 
@@ -150,7 +156,7 @@ Add `--offline` to use only the files already in `data/raw`. This resets the dat
 
 At the end it prints the counts and the unsupported metrics.
 
-### 5.2 Bulk (every SEC filer, numbers only) with Spark
+### 5.2 Bulk numbers (every SEC filer) with Spark
 
 SEC publishes `companyfacts.zip` (about 1.4 GB zipped): one companyfacts JSON per company, the same format as the pilot files. `spark/facts_job.py` reads the unzipped folder in parallel, runs the same `extract_company()` on every file, and writes Parquet tables. It also writes two reports with Spark DataFrame aggregations: coverage per metric, and restatement conflicts (the same company, metric and quarter reported with different values in different filings).
 
@@ -159,10 +165,21 @@ SEC publishes `companyfacts.zip` (about 1.4 GB zipped): one companyfacts JSON pe
 ```
 
 ```bash
-.venv/bin/python -m finqa.load_bulk data/bulk/parquet
+.venv/bin/python -m finqa.load_bulk facts data/bulk/parquet
 ```
 
-`load_bulk` skips companies already in the database, so run the pilot ingest first. You can try the job on the pilot files: `--input data/raw --first-year 2022 --last-year 2023` gives the same 850 figures as the pilot ingest. On AWS it runs on EMR with the data in S3 (`docs/CLOUD.md`).
+`load_bulk` skips companies already in the database. You can try the job on the pilot files: `--input data/raw --first-year 2022 --last-year 2023` gives the same 850 figures as the pilot ingest. Add `--cores N` to use N cores (default: all).
+
+### 5.3 Bulk text (every filer's 10-Qs) with Spark
+
+For "why" questions about any company, the 10-Q documents themselves are needed:
+
+1. `python -m finqa.filings manifest` lists every 10-Q in the documents table that has no text yet, and finds the file name of its main document in SEC's `submissions.zip`. The list is split into batches of 2,000 filings (`data/bulk/text/manifest.csv`).
+2. `python -m finqa.filings download` downloads them, 8 requests per second (SEC allows 10), gzipped into `data/bulk/text/raw/batch=NNNN/`. A batch is finished when its `_DONE` file exists, so a stopped download continues where it left off.
+3. `python spark/text_job.py --input data/bulk/text/raw --output data/bulk/text/chunks` splits every finished batch with `finqa/text.py` and embeds the passages with `finqa/embed.py` (the same code as the pilot ingest), one Spark task per core. Batches already done are skipped.
+4. `python -m finqa.load_bulk text data/bulk/text/chunks` adds the passages to Postgres, batch by batch; filings that already have text are skipped.
+
+`cloud/run_pipeline.sh` runs all of 5.2 and 5.3 in order, with steps 3 and 4 repeating while the download runs.
 
 
 ## 6. Asking a question: what happens step by step

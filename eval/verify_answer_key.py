@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from finqa.config import DATA_DIR  # noqa: E402
 from finqa.companies import company_by_ticker  # noqa: E402
 from finqa.db import connect  # noqa: E402
-from finqa.text import html_to_lines  # noqa: E402
+from finqa.text import html_to_lines, read_filing  # noqa: E402
 from finqa.workflow import lookup, shift_period  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -96,7 +96,7 @@ def main() -> None:
                 row["pct_change"] = round((cur["value"] - prev["value"]) * 100 / abs(prev["value"]), 2)
                 cells.append(fmt_cell(prev["value"], prev["unit"]))
         if doc["file_path"] not in cache:
-            cache[doc["file_path"]] = html_to_lines((DATA_DIR / doc["file_path"]).read_text(errors="ignore"))
+            cache[doc["file_path"]] = html_to_lines(read_filing(DATA_DIR / doc["file_path"]))
         hits = rows_with(cache[doc["file_path"]], q["metric"], *cells) if cur else []
         row["verified"] = bool(hits)
         row["evidence_row"] = hits[0][:200] if hits else None
