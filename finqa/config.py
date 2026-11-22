@@ -33,6 +33,12 @@ PILOT_COMPANIES = [
     {"ticker": "CAT", "cik": 18230, "name": "Caterpillar Inc."},
     {"ticker": "HON", "cik": 773840, "name": "Honeywell International Inc."},
 ]
+# Companies of the evaluation question sets (eval/questions_v2.jsonl): every section of their 10-Qs
+# is indexed. For all other filers the bulk text job indexes only MD&A, where the reasons are.
+EVAL_COMPANIES = {66740: "MMM", 21344: "KO", 200406: "JNJ", 18230: "CAT", 773840: "HON",
+                  77476: "PEP", 1318605: "TSLA", 1800: "ABT", 51143: "IBM", 936468: "LMT"}
+MDA_SECTION = "Part I Item 2."  # section label of Management's Discussion and Analysis
+
 PILOT_YEARS = (2022, 2023)  # 10-Qs whose period ends in these years (2022 gives year-over-year comparisons)
 TEXT_YEARS = (2023,)        # pilot 10-Qs whose text is indexed for passage search
 

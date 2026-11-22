@@ -10,10 +10,11 @@ import re
 
 from rank_bm25 import BM25Okapi
 
+from .config import MDA_SECTION
 from .embed import embed, passage_text
 
 METHODS = ("semantic", "bm25", "hybrid")
-MDA = "Part I Item 2."  # section label of Management's Discussion and Analysis
+MDA = MDA_SECTION
 
 _TOKEN = re.compile(r"[a-z0-9]+(?:[.'’-][a-z0-9]+)*")
 STOP = set("""a an the of to in on for and or by with is are was were be been this that these those

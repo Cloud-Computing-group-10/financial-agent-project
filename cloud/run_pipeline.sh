@@ -39,12 +39,14 @@ text_round() {
 }
 
 log "4. download (log: $BULK/download.log) + 5./6. text job and load for every finished batch"
-run python -m finqa.filings download >> "$BULK/download.log" 2>&1 &
-DOWNLOAD=$!
-while kill -0 "$DOWNLOAD" 2>/dev/null; do
+downloading() { pgrep -f "finqa.filings download" > /dev/null; }
+if ! downloading; then  # after a restart the download may still be running
+  run python -m finqa.filings download >> "$BULK/download.log" 2>&1 &
+  sleep 30
+fi
+while downloading; do
   text_round
   sleep 120
 done
-wait "$DOWNLOAD"
 text_round
 log "done"

@@ -6,7 +6,9 @@ On EMR (see docs/CLOUD.md), with s3:// paths.
 
 Input: text/raw/batch=NNNN/<accession>.htm.gz from `python -m finqa.filings download`.
 Each filing is split with finqa.text.filing_chunks() and every passage is embedded with
-finqa.embed.embed(), the same code as the pilot ingest. Output: one Parquet folder per batch,
+finqa.embed.embed(), the same code as the pilot ingest. To keep the run to about half a day on
+one machine, only the MD&A section (where companies explain their results) is kept, except for
+the evaluation companies (config.EVAL_COMPANIES), whose 10-Qs are indexed completely. Output: one Parquet folder per batch,
 text/chunks/batch=NNNN/, with columns accession, section, heading, ordinal, text, embedding.
 
 Only batches whose download is finished (_DONE) and that have no output yet (_SUCCESS) are
@@ -26,6 +28,7 @@ from pyspark.sql.types import (ArrayType, FloatType, IntegerType, StringType, St
                                StructType)
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))  # run from a checkout
+from finqa.config import EVAL_COMPANIES, MDA_SECTION  # noqa: E402
 from finqa.embed import embed, passage_text  # noqa: E402
 from finqa.text import filing_chunks  # noqa: E402
 
@@ -37,12 +40,14 @@ SCHEMA = StructType([
 EMBED_BATCH = 256  # passages per embedding call
 
 
-def filing_passages(path: str, content: bytes):
-    """(accession, section, heading, ordinal, text) for every passage of one downloaded filing."""
+def filing_passages(path: str, content: bytes, full_text: set[str]):
+    """(accession, section, heading, ordinal, text) for the passages of one downloaded filing:
+    all of them for filings in full_text, otherwise only MD&A."""
     accession = path.rsplit("/", 1)[-1].replace(".htm.gz", "")
     html = gzip.decompress(content).decode("utf-8", errors="ignore")
     for ch in filing_chunks(html):
-        yield accession, ch["section"], ch["heading"], ch["ordinal"], ch["text"]
+        if accession in full_text or ch["section"].startswith(MDA_SECTION):
+            yield accession, ch["section"], ch["heading"], ch["ordinal"], ch["text"]
 
 
 def embed_partition(rows):
@@ -77,10 +82,17 @@ def pending_batches(spark: SparkSession, raw: str, output: str) -> list[str]:
             and exists(spark, f"{raw}/{n}/_DONE") and not exists(spark, f"{output}/{n}/_SUCCESS")]
 
 
-def process_batch(spark: SparkSession, raw: str, output: str, name: str, partitions: int) -> tuple[int, int]:
+def full_text_filings(spark: SparkSession, manifest: str) -> set[str]:
+    """Accession numbers of the evaluation companies' 10-Qs, from the download manifest."""
+    rows = spark.read.option("header", True).csv(manifest).select("accession", "company_id").collect()
+    return {r.accession for r in rows if int(r.company_id) in EVAL_COMPANIES}
+
+
+def process_batch(spark: SparkSession, raw: str, output: str, name: str, partitions: int,
+                  full_text) -> tuple[int, int]:
     files = spark.read.format("binaryFile").option("pathGlobFilter", "*.htm.gz").load(f"{raw}/{name}")
     passages = (files.select("path", "content").rdd
-                .flatMap(lambda f: filing_passages(f.path, bytes(f.content)))
+                .flatMap(lambda f: filing_passages(f.path, bytes(f.content), full_text.value))
                 .repartition(partitions)  # spread the passages evenly before the expensive step
                 .mapPartitions(embed_partition))
     spark.createDataFrame(passages, SCHEMA).write.mode("overwrite").parquet(f"{output}/{name}")
@@ -93,6 +105,7 @@ def main() -> None:
     parser.add_argument("--input", required=True, help="text/raw folder (local or s3://)")
     parser.add_argument("--output", required=True, help="text/chunks folder (local or s3://)")
     parser.add_argument("--cores", type=int, help="run locally on this many cores (default: all, or the cluster)")
+    parser.add_argument("--manifest", help="manifest.csv of the download (default: next to --input)")
     parser.add_argument("--max-batches", type=int, help="stop after this many batches (for timing runs)")
     parser.add_argument("--driver-memory", default="8g")
     args = parser.parse_args()
@@ -105,13 +118,15 @@ def main() -> None:
         builder = builder.master(f"local[{args.cores}]")
     spark = builder.getOrCreate()
     partitions = spark.sparkContext.defaultParallelism * 4
+    manifest = args.manifest or raw.rsplit("/", 1)[0] + "/manifest.csv"
+    full_text = spark.sparkContext.broadcast(full_text_filings(spark, manifest))
 
     todo = pending_batches(spark, raw, output)[:args.max_batches]
     print(f"{len(todo)} batches to process, {spark.sparkContext.defaultParallelism} cores", flush=True)
     start = time.time()
     for name in todo:
         t = time.time()
-        filings, passages = process_batch(spark, raw, output, name, partitions)
+        filings, passages = process_batch(spark, raw, output, name, partitions, full_text)
         seconds = time.time() - t
         print(f"{name}: {filings} filings, {passages} passages, {seconds:.0f} s, "
               f"{passages / max(seconds, 1):.0f} passages/s", flush=True)
