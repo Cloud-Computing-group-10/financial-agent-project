@@ -66,3 +66,14 @@ def test_unknown_company_and_missing_period(loaded, monkeypatch):
     res = ask(monkeypatch, ParsedQuestion(company="ACME", metric="net_sales", qtype="numeric"))
     assert res["status"] == "answered"
     assert "assumed the latest available quarter (Q2 2023" in res["assumptions"][0]
+
+
+def test_jointly_filed_10q_keeps_each_companys_figures(conn):
+    """Some 10-Qs are filed by a parent and a subsidiary together: same accession, two companies."""
+    parent = extract_company(FACTS, ticker="ACME")
+    subsidiary = json.loads(json.dumps(FACTS).replace("120.0", "12.0"))  # same filings, other numbers
+    db.load_facts(conn, parent)
+    db.load_facts(conn, extract_company({**subsidiary, "cik": 5, "entityName": "ACME POWER CO"}))
+    rows = conn.execute("""SELECT d.company_id, f.value FROM figures f JOIN documents d USING (report_id)
+                           WHERE f.metric = 'net_sales' AND f.period = 'Q2 2023' ORDER BY 1""").fetchall()
+    assert [(r["company_id"], r["value"]) for r in rows] == [(1, 120.0), (5, 12.0)]

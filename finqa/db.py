@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS companies (
 CREATE TABLE IF NOT EXISTS documents (
     report_id  BIGSERIAL PRIMARY KEY,
     company_id BIGINT NOT NULL REFERENCES companies,
-    accession  TEXT NOT NULL UNIQUE,
+    accession  TEXT NOT NULL,           -- a few 10-Qs are filed jointly by two companies
     form_type  TEXT NOT NULL,
     title      TEXT NOT NULL,
     filed      DATE NOT NULL,
@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS documents (
     period_end DATE NOT NULL,
     url        TEXT,
     file_path  TEXT,                    -- 10-Q document under data/, only if its text is indexed
-    has_text   BOOLEAN NOT NULL DEFAULT FALSE
+    has_text   BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE (company_id, accession)
 );
 
 CREATE TABLE IF NOT EXISTS figures (
@@ -91,7 +92,7 @@ STAGING = {
     "companies": "company_id BIGINT, name TEXT, ticker TEXT, name_key TEXT",
     "documents": "accession TEXT, company_id BIGINT, form_type TEXT, title TEXT, filed DATE, period TEXT, "
                  "period_end DATE, url TEXT",
-    "figures": "accession TEXT, metric TEXT, statement TEXT, tag TEXT, line_label TEXT, period TEXT, "
+    "figures": "company_id BIGINT, accession TEXT, metric TEXT, statement TEXT, tag TEXT, line_label TEXT, period TEXT, "
                "period_start DATE, period_end DATE, duration TEXT, value DOUBLE PRECISION, unit TEXT, "
                "is_derived BOOLEAN",
     "metric_tags": "company_id BIGINT, metric TEXT, tags TEXT, unsupported_reason TEXT",
@@ -112,7 +113,7 @@ MERGE = [
                             period_end, duration, value, unit, is_derived)
            SELECT d.report_id, s.statement, s.metric, s.tag, s.line_label, s.period, s.period_start,
                   s.period_end, s.duration, s.value, s.unit, s.is_derived
-           FROM stage_figures s JOIN documents d USING (accession)
+           FROM stage_figures s JOIN documents d USING (company_id, accession)
            WHERE d.company_id IN (SELECT company_id FROM new_companies)""",
     """INSERT INTO metric_tags (company_id, metric, tags, unsupported_reason)
            SELECT company_id, metric, tags, unsupported_reason FROM stage_metric_tags

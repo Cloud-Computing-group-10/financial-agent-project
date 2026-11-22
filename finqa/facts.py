@@ -74,7 +74,7 @@ def extract_company(data: dict, ticker: str | None = None, years: tuple[int, int
     `name` overrides the SEC entity name (used for the pilot companies).
 
     Returns {"companies": [...], "documents": [...], "figures": [...], "metric_tags": [...]}.
-    Figures refer to their filing by accession number; the loader turns that into report_id."""
+    Figures refer to their filing by (company_id, accession); the loader turns that into report_id."""
     cik = int(data["cik"])
     name = name or display_name(data["entityName"])
     gaap = data.get("facts", {}).get("us-gaap", {})
@@ -86,6 +86,7 @@ def extract_company(data: dict, ticker: str | None = None, years: tuple[int, int
         rows += _derive_quarters(rows, documents)
         for row in rows:
             row["metric"] = metric
+            row["company_id"] = cik
         figures += rows
         metric_tags.append({
             "company_id": cik,

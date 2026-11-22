@@ -62,7 +62,7 @@ def build_manifest(conn, submissions_zip: Path, manifest: Path) -> int:
     for row in conn.execute("SELECT company_id, accession FROM documents WHERE NOT has_text"):
         wanted[row["company_id"]].add(row["accession"])
 
-    rows = []
+    rows, seen = [], set()
     with zipfile.ZipFile(submissions_zip) as z:
         for name in z.namelist():
             match = SUBMISSIONS_FILE.search(name)
@@ -70,7 +70,8 @@ def build_manifest(conn, submissions_zip: Path, manifest: Path) -> int:
                 continue
             company_id = int(match.group(1))
             for accession, document in main_documents(json.loads(z.read(name))).items():
-                if accession in wanted[company_id]:
+                if accession in wanted[company_id] and accession not in seen:
+                    seen.add(accession)  # a jointly filed 10-Q is downloaded once; its text goes to both companies
                     rows.append({"accession": accession, "company_id": company_id,
                                  "url": document_url(company_id, accession, document)})
 

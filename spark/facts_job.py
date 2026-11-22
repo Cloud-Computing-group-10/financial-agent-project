@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 
@@ -34,7 +35,7 @@ SCHEMAS = {  # column order = dict keys from facts.extract_company()
     "companies": [("company_id", L), ("name", S), ("ticker", S), ("name_key", S)],
     "documents": [("accession", S), ("company_id", L), ("form_type", S), ("title", S), ("filed", S),
                   ("period", S), ("period_end", S), ("url", S)],
-    "figures": [("accession", S), ("metric", S), ("statement", S), ("tag", S), ("line_label", S),
+    "figures": [("company_id", L), ("accession", S), ("metric", S), ("statement", S), ("tag", S), ("line_label", S),
                 ("period", S), ("period_start", S), ("period_end", S), ("duration", S), ("value", D),
                 ("unit", S), ("is_derived", B)],
     "metric_tags": [("company_id", L), ("metric", S), ("tags", S), ("unsupported_reason", S)],
@@ -42,11 +43,14 @@ SCHEMAS = {  # column order = dict keys from facts.extract_company()
 DATE_COLUMNS = {"filed", "period_start", "period_end"}
 
 
-def company_rows(text: str, tickers: dict, years: tuple[int, int]):
-    """(table, row tuple) pairs for one companyfacts file. Files without 10-Q facts give nothing."""
+def company_rows(path: str, text: str, tickers: dict, years: tuple[int, int]):
+    """(table, row tuple) pairs for one companyfacts file (CIK##########.json). Files without
+    10-Q facts give nothing. A few files have no "cik" field; the file name has it too."""
     data = json.loads(text)
     if not data.get("facts"):
         return
+    data.setdefault("cik", int(re.search(r"CIK(\d+)", path).group(1)))
+    data.setdefault("entityName", f"Company CIK {int(data['cik'])}")
     tables = extract_company(data, ticker=tickers.get(int(data["cik"])), years=years)
     if not tables["documents"]:
         return
@@ -81,8 +85,7 @@ def write_tables(spark: SparkSession, records, output: str) -> dict[str, int]:
 def write_reports(spark: SparkSession, output: str) -> None:
     """Coverage per metric, and restatements: the same company, metric and quarter reported
     with different values in different filings (the conflict rule of plan 15.2)."""
-    documents = spark.read.parquet(f"{output}/documents")
-    figures = spark.read.parquet(f"{output}/figures").join(documents.select("accession", "company_id"), "accession")
+    figures = spark.read.parquet(f"{output}/figures")
     quarters = figures.where(F.col("duration") == "3M")
 
     coverage = (quarters.groupBy("metric")
@@ -125,7 +128,7 @@ def main() -> None:
     # wholeTextFiles makes only 2 partitions unless told otherwise; ask for several per core.
     files = spark.sparkContext.wholeTextFiles(f"{args.input.rstrip('/')}/*.json",
                                               minPartitions=spark.sparkContext.defaultParallelism * 4)
-    records = files.flatMap(lambda f: company_rows(f[1], tickers.value, years)).cache()
+    records = files.flatMap(lambda f: company_rows(f[0], f[1], tickers.value, years)).cache()
     counts = write_tables(spark, records, args.output)
     write_reports(spark, args.output)
 
