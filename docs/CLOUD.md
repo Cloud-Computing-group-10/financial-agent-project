@@ -33,8 +33,8 @@ Region: `us-east-1`. Commands with `aws` run on the instance (the AWS CLI is pre
 ## 2. Launch the instance
 
 EC2 → Launch instance:
-- Name `finqa`, image **Amazon Linux 2023** (64-bit x86)
-- Type **c7i.4xlarge** (16 vCPU, 32 GB, about $0.71/h). With a 32-vCPU quota, **c7i.8xlarge** halves the embedding time for the same total cost.
+- Name `finqa`, image **Ubuntu** or **Amazon Linux 2023** (64-bit x86); `cloud/ec2_setup.sh` handles both
+- Type **c7i.8xlarge** (32 vCPU, 64 GB, about $1.43/h; needs a 32-vCPU quota), or **c7i.4xlarge** (16 vCPU, about $0.71/h, twice the embedding time for the same cost)
 - Key pair: create one named `finqa` (RSA, .pem) and save it as `~/.ssh/finqa.pem`, then `chmod 400 ~/.ssh/finqa.pem`
 - Network: allow **SSH (22)** from *My IP*; add a rule for **TCP 8501** (Streamlit) from *My IP*
 - Storage: **250 GB gp3**
@@ -43,8 +43,10 @@ EC2 → Launch instance:
 Connect:
 
 ```bash
-ssh -i ~/.ssh/finqa.pem ec2-user@<public-ip>
+ssh -i ~/.ssh/finqa.pem ubuntu@<public-ip>
 ```
+
+(The user name is `ubuntu` on Ubuntu, `ec2-user` on Amazon Linux.)
 
 
 ## 3. Code and Docker
@@ -53,7 +55,7 @@ The repository is private, so copy your checkout from your laptop (this also wor
 uncommitted changes). From the folder above the project:
 
 ```bash
-rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude .env -e "ssh -i ~/.ssh/finqa.pem" financial-agent-project ec2-user@<public-ip>:~/
+rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude data/financebench/pdfs --exclude .env -e "ssh -i ~/.ssh/finqa.pem" financial-agent-project ubuntu@<public-ip>:~/
 ```
 
 On the instance:
@@ -62,15 +64,16 @@ On the instance:
 cd financial-agent-project && bash cloud/ec2_setup.sh
 ```
 
-Log out and in again. Create `.env` from `.env.example` (API keys, and `SEC_USER_AGENT` with your
-name and email), then build the image:
+Log out and in again. Create `.env` from `.env.example`: `SEC_USER_AGENT` with your name and email
+(needed for the downloads), and the API keys (`ANTHROPIC_API_KEY`, `HKUST_API_KEY`; needed for the
+app and the experiments). Then build the image:
 
 ```bash
 docker compose build
 ```
 
 
-## 4. Download the SEC bulk files (about 15 minutes)
+## 4. Download the SEC bulk files (a few minutes)
 
 ```bash
 bash cloud/fetch_bulk.sh
@@ -90,6 +93,12 @@ it stops (or you stop it), start it again: finished work is skipped.
 
 Options: `CORES=8` (Spark cores, default all), `FIRST_YEAR=2021` (fewer years, less download).
 
+Measured on c7i.8xlarge (32 vCPU): the Spark facts job takes 40 s for 20,609 company files
+(9,695 companies with 10-Qs since 2019, 140,436 filings, 3.0 million figures), loading them takes
+1 minute. The download runs at SEC's limit, about 4 minutes per batch of 2,000 filings (about 5
+hours in all). Embedding is the slow step: MD&A only (README 5.3) takes about 7 minutes per batch,
+about 9 hours in all. Spark processes finished batches while the download continues.
+
 When it is done, keep a copy in S3:
 
 ```bash
@@ -97,7 +106,27 @@ bash cloud/backup_to_s3.sh finqa-yourname-2026
 ```
 
 
-## 6. Serve the app
+## 6. FinanceBench filings
+
+The FinanceBench PDFs (README 5.4) are parsed and embedded on a laptop (faster per core than the
+server) and written into the cloud database through an SSH tunnel. Open the tunnel:
+
+```bash
+ssh -i ~/.ssh/finqa.pem -f -N -L 5433:localhost:5432 ubuntu@<public-ip>
+```
+
+Then, on the laptop, with the PDFs in `data/financebench/pdfs`:
+
+```bash
+DATABASE_URL=postgresql://finqa:finqa@localhost:5433/finqa .venv/bin/python -m finqa.pdf_docs
+```
+
+The same tunnel lets you query the cloud database from the laptop, e.g. to run the experiments
+(README 8.3) with `DATABASE_URL` set this way. Postgres is only reachable through SSH; port 5432 is
+not open to the internet.
+
+
+## 7. Serve the app
 
 ```bash
 docker compose up -d
@@ -110,21 +139,27 @@ type), start it again and run `docker compose up -d`. The public IP changes afte
 
 ## Scaling experiment (plan 16.8)
 
-Same machine, different core counts, on one batch of filings:
+Same machine, different core counts, on the same sample of filings. A full batch takes hours on
+one core, so copy 200 filings of a finished batch into a sample batch first:
 
 ```bash
-docker compose run --rm api python spark/text_job.py --input data/bulk/text/raw --output /tmp/scale --cores 4 --max-batches 1
+docker compose run --rm -T api sh -c 'mkdir -p data/bulk/scale/raw/batch=0000 && ls data/bulk/text/raw/batch=0005/*.htm.gz | head -200 | xargs -I{} cp {} data/bulk/scale/raw/batch=0000/ && touch data/bulk/scale/raw/batch=0000/_DONE'
 ```
 
-Repeat with `--cores 1`, `2`, `4`, `8`, `16` (use a new `--output` each time) and note the
-passages per second it prints.
+```bash
+docker compose run --rm -T api python spark/text_job.py --input data/bulk/scale/raw --output /tmp/scale --manifest data/bulk/text/manifest.csv --cores 4
+```
+
+Repeat with `--cores 1`, `2`, `4`, `8`, `16`, `32` and note the passages per second it prints
+(each run starts from scratch, since `/tmp` is inside the container). Run it after the pipeline,
+when nothing else uses the cores, and before changing the instance to a small type.
 
 
 ## Costs and teardown
 
 | Item | Price (us-east-1) | Typical use |
 |---|---|---|
-| c7i.4xlarge | ~$0.71/h, only while running | ~1 day for the pipeline: ~$15-20 |
+| c7i.8xlarge | ~$1.43/h, only while running | ~10 h for the pipeline: ~$15 |
 | t3.large afterwards | ~$0.08/h | app and experiments |
 | EBS 250 GB gp3 | ~$20/month, also while stopped | delete at the end |
 | S3, ~50-100 GB | ~$1-2/month | |

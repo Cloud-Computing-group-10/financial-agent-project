@@ -237,6 +237,8 @@ Main hypotheses:
 
 ### 16.4 Question set
 
+*Built as `eval/questions_v2.jsonl` with 10 companies instead of 5 (section 19.8).*
+
 About 60 questions over the 5 pilot companies, split into a **dev set** (about 10, used only to calibrate search thresholds) and a **test set** (about 50, never used for tuning).
 
 | Category | Approx. count | Example | What it tests |
@@ -316,6 +318,8 @@ Run on the deployed system (AWS EC2, section 18), so they complement the quality
 
 ### 16.11 External test set: FinanceBench (after the bulk load)
 
+*Superseded by section 19: FinanceBench is used in full, through the document QA path, not only its in-scope questions.*
+
 1. FinanceBench (`PatronusAI/financebench`, CC-BY-NC 4.0) has 150 open questions over real SEC filings of US companies, each with an answer, evidence text and the filing. Most are about 10-Ks; some are about 10-Qs.
 2. It becomes usable once the Spark bulk load (section 17) has the numbers of every filer. The questions are split by code and by hand into **in scope** (a single metric from our list, or its change, for a quarter) and **out of scope** (ratios, multi-step calculations, judgement questions). Out-of-scope questions are kept as "should decline" cases.
 3. 10-K questions need full fiscal years. Supporting them means adding a 12-month duration (`FY 2023`) to the period rules in `finqa/facts.py` and relaxing the 10-K scope rule. Decide this once the in-scope count is known.
@@ -339,10 +343,22 @@ Replaces 15.6. Built and tested locally with Docker; deployment target is AWS Ac
 
 Replaces the deployment parts of section 17 (Learner Lab, EMR). The cloud is a normal AWS account ($100 credits), which has no 4-hour session limit.
 
-1. **Scope.** Numbers and 10-Q text for every SEC filer, 10-Qs from 2019 on (expected roughly 150,000 filings and 10-15 million passages; the real counts come from the run).
+1. **Scope.** Numbers and 10-Q text for every SEC filer, 10-Qs from 2019 on. Measured: 9,695 companies, 140,436 filings, 3.0 million figures. Text: the MD&A section of every 10-Q, and all sections for the 10 evaluation companies (see point 7).
 2. **Text pipeline.** `finqa/filings.py` lists every 10-Q in the documents table (main document name from SEC's `submissions.zip`) and downloads them at 8 requests per second, gzipped, in batches of 2,000. `spark/text_job.py` splits and embeds each finished batch with the same code as the pilot ingest (`finqa/text.py`, `finqa/embed.py`), one task per core, and writes Parquet. `load_bulk text` adds the passages to Postgres. Every step skips finished work, so the pipeline can be stopped and restarted, and Spark works on finished batches while the download continues (`cloud/run_pipeline.sh`).
-3. **One large instance instead of an EMR cluster.** The SEC download limit is the same for any number of machines, and embedding is CPU work that Spark spreads over the cores of one machine just as well. One instance (c7i.4xlarge, 16 vCPU) avoids cluster setup; after the pipeline it is resized to a small type for the app. S3 keeps a copy of all data.
+3. **One large instance instead of an EMR cluster.** The SEC download limit is the same for any number of machines, and embedding is CPU work that Spark spreads over the cores of one machine just as well. One instance (c7i.8xlarge, 32 vCPU) avoids cluster setup; after the pipeline it is resized to a small type for the app. S3 keeps a copy of all data.
 4. **Search scales by design.** Passage search always filters to one filing first (a B-tree index on `report_id`), then compares about 200 vectors, so a passages table of tens of GB needs disk, not memory, and no approximate vector index.
 5. **Measured on the pilot (laptop, Docker, 4 cores):** 117 10-Qs (5 companies, 2019-2025) gave 22,328 passages (about 190 per filing for large companies) in 7.5 minutes; download 16 s. Embedding is the slow step. Batches of 32 passages keep each worker below about 0.5 GB of memory.
 6. **Limitations.** Small filers have shorter, messier filings, so "why" answers for them will abstain more often. Tag choices for bulk companies are not verified against their documents; a random sample of about 30 figures is checked by hand for the report.
+7. **Measured on the server, and the MD&A-only decision.** Spark facts job: 40 s for 20,609 company files on 32 vCPU. Download: about 4 minutes per batch of 2,000 filings (SEC's limit). Embedding: about 190 passages per second on 32 vCPU (about 5 per vCPU, a third of the laptop estimate, which came from Apple M4 cores with matrix units). All sections of every 10-Q (about 18 million passages) would take about 33 hours (~$47); MD&A only, where the reasons are, is about 30% of the passages and about 9 hours. MD&A-only was chosen for the bulk; the 10 evaluation companies keep all sections. About a quarter of the filings have no recognisable MD&A heading and get no text (a limitation of the section detector).
+8. **Bugs found by the first cloud run (fixed):** 70 companyfacts files are empty or lack a `cik` field; 109 10-Qs are filed jointly by two companies (documents are now unique per company and accession); 879 companies had a preferred-share ticker (e.g. "BA-PA") instead of their main one.
 
+## **19\. Every question type: router + document QA, and FinanceBench (22-23 November)**
+
+1. **Why.** The structured path answers 10 quarterly metrics and "why" questions. A public test set (FinanceBench, 150 questions about 84 filings) showed that almost none of its questions fit: 112 are about 10-Ks, and most need ratios, other line items or judgement. Instead of declining those, the system now routes them to a document QA path, so it answers every question type and can be evaluated on an external benchmark.
+2. **Router** (`structured()` in `finqa/workflow.py`): one of our metrics (or a "why") for a 10-Q quarter, with no scope rule hit, keeps the structured path (SQL / MD&A search). Everything else goes to document QA in the filing of that period (10-Q quarter, or "FY 2019" for a 10-K). If no such filing is loaded, the system declines as before.
+3. **Document QA** (`finqa/docqa.py`): hybrid search in that one filing (top 10), with the query extended by `search_terms` that the parse call now also returns (filing language, e.g. "purchases of property, plant and equipment cash flow statement"; no extra LLM call). The LLM answers with claims citing passage ids. **For a calculation it never computes:** it returns each input as printed in a passage plus a formula; code checks that every input is printed in a retrieved passage and evaluates the formula with an arithmetic-only evaluator. This keeps the project's rule that numbers come from data and arithmetic from code.
+4. **FinanceBench data.** The 84 filings are loaded from FinanceBench's PDFs (`finqa/pdf_docs.py`): page pieces of about 150 words, tables kept (10-Q passages from HTML leave tables out, since their numbers come from XBRL). 43,351 passages. All 189 evidence snippets of the 150 questions are found on their pages in our extracted text.
+5. **Evaluation setting.** As in FinanceBench's "single document" setting, every system gets the correct document. Answers are graded against the gold answer by an LLM grader with a fixed model (`eval/judge.py`); a person checks a sample.
+6. **Baseline C** (`finqa/rag_baseline.py`) uses the same index and search as document QA (hybrid, top 10) without parsing, routing, code arithmetic or checks, so A vs C isolates what the workflow adds around retrieval.
+7. **Year-over-year comparisons** now use the prior-year column of the same 10-Q (restated figures, like the company itself compares). Found while verifying the answer key: J&J's Q3 2023 revenue is +6.8% against restated 2022 (after the Kenvue spin-off), but −10.3% against the original 2022 filing.
+8. **Question set v2** (`eval/questions_v2.jsonl`): 50 test + 10 dev questions over the 5 pilot companies (2023) and PepsiCo, Tesla, Abbott, IBM, Lockheed Martin (2024); all 60 answers verified against the filings (README 8.1).

@@ -1,10 +1,13 @@
 # 10-Q question answering with cited sources
 
-This project answers questions about a company's quarterly results, for example "How much did Caterpillar's operating profit change year over year in Q2 2023?", and every answer says exactly where the number comes from (which filing, which statement, which line, which quarter).
+This project answers questions about US companies' SEC filings, for example "How much did Caterpillar's operating profit change year over year in Q2 2023?", "Why did Tesla's automotive revenue fall in Q2 2024?" or "What is 3M's FY2018 capital expenditure?". Every answer says exactly where each number and reason comes from (which filing, which statement or passage, which period).
 
-The main idea: the LLM only reads the question and turns it into a few fields (company, metric, period). The number itself is looked up in a database built from the SEC filings, and the source comes from the same database row. So the LLM can't make up a number or a citation.
+The main idea: the LLM reads the question and turns it into a few fields (company, metric, period). A router then picks one of three paths:
+- **Quarterly metrics and their changes:** the number is looked up in a database built from SEC's structured (XBRL) data, with the source from the same database row. The LLM can't make up a number or a citation.
+- **"Why" questions about a quarter:** the MD&A section of that 10-Q is searched, and the LLM writes claims that must cite the retrieved passages.
+- **Everything else** (ratios, full years, other line items, text questions): document QA. The LLM answers from passages of the right filing. For a calculation it only extracts the cited inputs and a formula, and code computes the result.
 
-We compare this "workflow" against baselines: give the same LLM the whole 10-Q filing and the question, and let it answer (plus a simple RAG baseline, see the experiment plan).
+We compare this "workflow" (system A) against two baselines with the same LLM: the whole filing plus the question (B), and a simple RAG pipeline (C). We test on our own verified question set and on the external FinanceBench benchmark (section 8).
 
 The design and the reasons behind it are in `Cloud Computing Project Design Plan.md`; section 15 lists what changed while building it, and section 16 is the experiment plan.
 
@@ -12,16 +15,20 @@ The design and the reasons behind it are in `Cloud Computing Project Design Plan
 ## 1. Architecture
 
 ```
-QUERY PATH (every question, ~2 s)
+QUERY PATH (every question, a few seconds)
   Browser ──▶ Streamlit (frontend/app.py) ──HTTP──▶ FastAPI (api.py) ──▶ finqa.workflow
-                                                                            ├─▶ LLM: parse the question (and explain "why")
-                                                                            └─▶ Postgres + pgvector: figures (SQL), passages (vectors)
+      parse (LLM) ──▶ router ─┬─▶ quarterly metric / change ──▶ SQL templates over figures
+                              ├─▶ "why" about a quarter     ──▶ MD&A search ──▶ LLM claims, citations checked
+                              └─▶ everything else           ──▶ document QA: search one filing ──▶ LLM answer
+                                                                with cited inputs + formula ──▶ code computes
+      Postgres + pgvector: companies, documents, figures, metric_tags, chunks (passages + vectors)
 
 DATA PATH (batch)
-  pilot:  SEC files for 5 companies ──▶ python -m finqa.ingest ──▶ Postgres (numbers + 10-Q text)
+  pilot:        SEC files for 5 companies ──▶ python -m finqa.ingest ──▶ Postgres (numbers + 10-Q text)
   bulk numbers: SEC companyfacts.zip (every filer) ──▶ Spark (spark/facts_job.py) ──▶ Parquet ──▶ load_bulk facts ──▶ Postgres
   bulk text:    submissions.zip ──▶ finqa.filings (list + download every 10-Q) ──▶ Spark (spark/text_job.py:
                 split + embed) ──▶ Parquet ──▶ load_bulk text ──▶ Postgres
+  FinanceBench: 84 filings as PDF ──▶ python -m finqa.pdf_docs (page passages + embeddings) ──▶ Postgres
 ```
 
 Locally everything runs with Docker Compose. In the cloud the same Compose file runs on one large EC2 instance: Spark in local mode on all its cores, Postgres, the API and the frontend, with a copy of the data in S3. See `docs/CLOUD.md`.
@@ -45,8 +52,11 @@ finqa/                     all the system code
   search.py                passage search (keyword / semantic / hybrid)
   llm.py                   all LLM calls (Claude, HKUST gateway, ChatGPT, local Qwen)
   parse.py                 step 1: question -> fields (LLM) + checks
-  workflow.py              steps 2-5: lookup, checks, answer with sources
-  baseline.py              the baseline: whole 10-Q + question to the LLM
+  workflow.py              router + structured paths: SQL lookup, "why" search, checks, answer with sources
+  docqa.py                 document QA path: search one filing, cited answer, formulas computed by code
+  pdf_docs.py              FinanceBench filings (PDF) -> documents + page passages
+  baseline.py              baseline B: whole filing + question to the LLM
+  rag_baseline.py          baseline C: top passages of the filing + question to the LLM
   cli.py                   command line entry point
 spark/facts_job.py         Spark job: SEC bulk XBRL file -> figures
 spark/text_job.py          Spark job: downloaded 10-Qs -> passages + embeddings
@@ -56,7 +66,9 @@ eval/                      evaluation (see section 8)
 docker-compose.yml         Postgres + API + frontend
 Dockerfile                 one image for API, frontend, ingestion and Spark
 docs/CLOUD.md              how to run it on AWS (EC2 + S3)
-data/raw/                  original SEC files (not in git, downloaded by ingestion)
+data/raw/                  original SEC files of the pilot (not in git, downloaded by ingestion)
+data/bulk/                 SEC bulk files, downloaded 10-Qs, Spark output (not in git, on the EC2 instance)
+data/financebench/         FinanceBench questions and document list (PDFs in pdfs/, not in git)
 ```
 
 
@@ -125,12 +137,21 @@ The database tests use a separate database `finqa_test` in the same Postgres, an
   - `<TICKER>/*.htm` is the 10-Q documents themselves, 2023 Q1-Q3 for each company.
 - Postgres holds the derived tables (`finqa/db.py`):
   - `companies`: company_id (the SEC CIK), name, ticker, name_key (normalised name for lookups)
-  - `documents`: one row per 10-Q: accession, filing date, quarter covered, SEC link, local file (if its text is indexed)
+  - `documents`: one row per filing: accession, form (10-Q, or for FinanceBench also 10-K, 8-K, earnings release), filing date, period covered ("Q2 2023", "FY 2019"), link, local file (if its text is indexed). Unique per (company, accession), because a few 10-Qs are filed jointly by a parent and a subsidiary.
   - `figures`: metric, XBRL tag, line label, period, start/end, duration (3M or YTD), value, unit, is_derived
   - `metric_tags`: which XBRL tags a company uses for each metric, or why the metric is unsupported
-  - `chunks`: 10-Q text passages with section, heading and their embedding vector (pgvector)
+  - `chunks`: text passages with section, heading and their embedding vector (pgvector)
 
-Pilot companies: 3M (MMM), Coca-Cola (KO), Johnson & Johnson (JNJ), Caterpillar (CAT), Honeywell (HON). These are all calendar-year companies, so Q2 really means April-June. All their 10-Qs from 2022 and 2023 are loaded for numbers (30 filings, 850 figures); the text of the 2023 ones is indexed for search (15 filings, 2,741 passages).
+What is loaded where:
+
+| Data | Laptop (pilot) | Cloud database (docs/CLOUD.md) |
+|---|---|---|
+| Companies | 5 | 9,695 (every filer with a 10-Q since 2019) |
+| 10-Q filings / figures | 30 / 850 (2022-2023) | 140,436 / 3.0 million (2019 to today) |
+| 10-Q text | 15 filings, all sections | MD&A of every 10-Q; all sections for the 10 evaluation companies (`EVAL_COMPANIES`) |
+| FinanceBench filings | – | 84 PDFs (64 10-Ks, 8 10-Qs, 12 earnings releases / 8-Ks), 43,351 page passages |
+
+Pilot companies: 3M (MMM), Coca-Cola (KO), Johnson & Johnson (JNJ), Caterpillar (CAT), Honeywell (HON). These are all calendar-year companies, so Q2 really means April-June. The evaluation set adds PepsiCo, Tesla, Abbott, IBM and Lockheed Martin.
 
 Metrics: net sales/revenue, cost of sales, gross profit, SG&A, R&D, operating income, pretax income, net income, diluted EPS, operating cash flow. They are defined in `finqa/config.py` (`METRICS`).
 
@@ -181,6 +202,18 @@ For "why" questions about any company, the 10-Q documents themselves are needed:
 
 `cloud/run_pipeline.sh` runs all of 5.2 and 5.3 in order, with steps 3 and 4 repeating while the download runs.
 
+Only the **MD&A section** is kept for most filers. Embedding is the slow step: about 5 passages per second per vCPU (MiniLM on CPU), so every section of 140,000 10-Qs (about 18 million passages) would take about 33 hours on 32 vCPUs. MD&A, where companies explain their results and where "why" questions are answered, is about 30% of the passages and takes about 9 hours. The 10 evaluation companies keep all sections, so the experiments can search the whole filing. Some filings have no recognisable "Item 2" heading; they get no text (about a quarter of the filings in the first batches).
+
+### 5.4 FinanceBench filings (PDF)
+
+The FinanceBench test set (section 8) asks about 84 filings, mostly 10-Ks. They are loaded from the PDFs that FinanceBench publishes:
+
+```bash
+.venv/bin/python -m finqa.pdf_docs
+```
+
+`finqa/pdf_docs.py` adds one `documents` row per filing (accession `financebench:<doc_name>`, period from the name, e.g. "FY 2018" or "Q2 2023" in the company's own fiscal labels) and splits every PDF page into pieces of about 150 words. Unlike the 10-Q passages, **tables are kept**, because many FinanceBench questions need numbers from the statements. The page text is cached next to each PDF. PDF parsing and embedding of all 84 filings takes about 40 minutes on a laptop.
+
 
 ## 6. Asking a question: what happens step by step
 
@@ -207,30 +240,34 @@ Sources:
 
 The steps, all in `answer()` in `finqa/workflow.py`:
 
-Step 1: parse the question (`finqa/parse.py`, `parse_question()`). One LLM call. The prompt is `_SYSTEM` in parse.py: it lists the allowed metrics and asks for JSON with company (copied as written in the question), metric, period, qtype (numeric / explanatory / both), compare (none / yoy / qoq) and unsupported_reason. The question is the user message.
+Step 1: parse the question (`finqa/parse.py`, `parse_question()`). One LLM call. The prompt is `_SYSTEM` in parse.py: it lists the allowed metrics and asks for JSON with company (copied as written in the question), metric, period ("Q2 2023", or "FY 2019" for a full year), qtype (numeric / explanatory / both), compare (none / yoy / qoq), unsupported_reason, and search_terms (a short search query in the words a filing uses, for document QA). The question is the user message.
 
 For the CAT example the LLM returns:
 
 ```
-{"company": "Caterpillar", "metric": "operating_income", "period": "Q2 2023", "qtype": "numeric", "compare": "yoy", "unsupported_reason": null}
+{"company": "Caterpillar", "metric": "operating_income", "period": "Q2 2023", "qtype": "numeric", "compare": "yoy",
+ "unsupported_reason": null, "search_terms": "operating profit income statement"}
 ```
 
 Then code checks the result (this is not a second parser, just validation):
 - the company must actually be written in the question; if the LLM returns a company that isn't, it is removed, so the system asks "which company?"
 - the company mention is looked up in the database (`finqa/companies.py`): first known aliases ("Coke", "J&J"), then tickers, then the normalised name, then names that start with it ("Honeywell" -> "Honeywell International"). No match: declined. Several matches: the system asks which one.
 - the metric must be in the metric list
-- out-of-scope questions are caught by fixed rules (`scope_violation()`): annual/10-K, Q4, ratios/margins, segment numbers
+- questions the structured data can't answer are recognised by fixed rules (`scope_violation()`): annual/10-K, Q4, ratios/margins, segment numbers. They are not declined any more; they go to document QA (step 2)
 - if there is no "why" word in the question, it is treated as numeric
 
 If the LLM call fails (no key, no credits, network), the answer is status "error". There is no fallback.
 
-Step 2: route. Numeric questions go to the lookup; "why" questions go to text search (not in the current evaluation); "both" does both.
+Step 2: find the filing and route (`structured()` in workflow.py). The filing is the 10-Q of the quarter, the filing of the year for "FY 2019", or the latest 10-Q if no period is given (the answer says so). If no such filing is loaded, the system declines. Then:
+- **structured path:** one of our 10 metrics (or a "why") for a quarter, and no scope rule hit. Numeric questions go to the lookup (step 3); "why" questions go to the MD&A search (see below); "both" does both.
+- **document QA:** everything else, e.g. "What is 3M's FY2018 capex?", "What was IBM's quick ratio in Q2 2024?", "Which segment dragged down growth?". See "Document QA" below.
 
-Step 3: lookup (`numeric_path()`). The LLM never writes SQL. There are two fixed SQL templates at the top of workflow.py:
+Step 3: lookup (`numeric_path()`). The LLM never writes SQL. There are fixed SQL templates at the top of workflow.py:
 - `SQL_LOOKUP` finds the figure for (company, metric, period, 3-month). It joins figures with documents so the filing comes along. If several filings have the same number (current value and later comparison column), the filing that covers that quarter is preferred.
+- `SQL_SAME_FILING` finds the prior-year quarter in the comparison column of the same 10-Q. Year-over-year changes use it, because companies restate prior years: J&J's Q3 2023 10-Q compares with a 2022 restated after the Kenvue spin-off ($19,996M, +6.8%), while its original Q3 2022 10-Q says $23,791M.
 - `SQL_CHANGE` computes the absolute and percentage change between two figure rows, in SQL.
 
-For "yoy" the second period is the same quarter one year earlier; for "qoq" it is the previous quarter (`shift_period()`).
+For "yoy" the second period is the same quarter one year earlier; for "qoq" it is the previous quarter, from its own 10-Q (`shift_period()`, `previous_figure()`).
 
 Step 4: checks.
 - No figure found: declined ("Not enough evidence ..."). If the metric is unsupported for that company, the reason from `metric_tags` is given, e.g. Honeywell operating income.
@@ -241,18 +278,40 @@ Step 5: answer (`render_numeric()` + `figure_locator()`). The sentence is a fixe
 
 Possible statuses: answered, abstain (declined), clarify (asks back), partial, error.
 
-### "Why" questions (code exists, not evaluated right now)
+### "Why" questions
 
-For a "why" question, `retrieve()` searches the passages of that one filing. It searches the MD&A section first and then the whole filing with a rewritten query, at most 2 rounds. If the best score is below a threshold (`THRESHOLDS` in config.py), it declines and shows the closest passages. Otherwise `compose_explanation()` sends the question, the figures and the top 5 passages (tagged [C<id>]) to the LLM with the prompt `_EXPLAIN_SYSTEM`. The LLM must return claims, each with the passage ids it comes from. Code drops any claim that cites an id that wasn't retrieved.
+For a "why" question, `retrieve()` searches the passages of that one filing. It searches the MD&A section first and then the whole filing with a rewritten query, at most 2 rounds. If the best score is below a threshold (`THRESHOLDS` in config.py), it declines and shows the closest passages. Otherwise `compose_explanation()` sends the question, the figures and the top 5 passages (tagged [C<id>]) to the LLM with the prompt `_EXPLAIN_SYSTEM`. The LLM must return claims, each with the passage ids it comes from. Code drops any claim that cites an id that wasn't retrieved. If the question names a metric, the figures and their change are looked up too and shown with the reasons.
 
 Search methods (`finqa/search.py`): `bm25` (keyword), `semantic` (embeddings, cosine similarity), `hybrid` (both combined with reciprocal rank fusion). Choose with `--method`.
+
+### Document QA (everything else)
+
+`answer_from_document()` in `finqa/docqa.py` answers from the text of one filing. Example:
+
+```
+Q: What is the FY2018 capital expenditure amount (in USD millions) for 3M? ...
+A: 3M's FY2018 capital expenditure (purchases of property, plant and equipment) was 1,577.00 USD millions.
+   - Purchases of property, plant and equipment (PP&E) in 2018 were $1,577 million ... [C264417]
+```
+
+1. **Search:** hybrid search (BM25 + embeddings) over the passages of that filing, top 10. The query is the parser's `search_terms` plus the question, because long questions with instructions ("answer as an equity analyst, using the cash flow statement ...") retrieve poorly on their own.
+2. **LLM:** the prompt (`SYSTEM` in docqa.py) asks for an answer with claims that cite passage ids, and says `answerable=false` if the passages don't contain what is needed. **The LLM never computes:** for a calculation it returns the inputs, each as printed in a passage with that passage's id, plus a formula over the input names, e.g. `(ap_2016 + ap_2017) / 2 / cogs_2017 * 365`.
+3. **Code checks and computes:**
+   - Claims that cite a passage that wasn't retrieved are dropped.
+   - Every input number must be printed in a retrieved passage; if the cited one doesn't print it, the citation is moved to the one that does, otherwise the answer is flagged.
+   - The formula is evaluated by a small arithmetic-only evaluator (`evaluate()`: numbers, the input names, + - * / ** and parentheses; anything else is refused).
+4. **Declines:** no passages, `answerable=false`, or an answer that can't be tied to any retrieved passage.
+
+10-Q passages from SEC's HTML leave out tables (the numbers come from XBRL instead), so ratio questions about a bulk 10-Q usually decline. The FinanceBench PDFs keep their tables, so their ratios can be computed.
 
 
 ## 7. The LLM layer and switching models
 
 All LLM calls go through `finqa/llm.py`:
-- `parse()` asks for structured JSON that is validated against a Pydantic model; it is used by the parser and the explainer.
-- `text()` is free text, used by the baseline.
+- `parse()` asks for structured JSON that is validated against a Pydantic model; it is used by the parser, the "why" explainer and document QA.
+- `text()` is free text, used by the baselines B and C.
+
+LLM calls per question: 1 for a numeric question, 2 for a "why" question or document QA (parse + answer).
 
 Choose the model with `--llm` (and optionally `--model`) on the CLI and the eval script:
 
@@ -280,19 +339,91 @@ Everything is in `eval/`:
 
 ```
 eval/
-  questions_numeric.jsonl      the 25 numeric questions (current evaluation)
-  answer_key_numeric.jsonl     correct answers, each verified against the filing
-  verify_answer_key.py         builds + verifies the answer key
-  run_eval.py                  runs workflow and baseline, scores, writes results
-  RESULTS.md                   results write-up for the slides
-  EXAMPLES.md                  side-by-side example answers and sources
-  questions_all_types.jsonl    old mixed set (explanatory + edge cases), for later
+  questions_v2.jsonl           our question set: 50 test + 10 dev questions, 10 companies (8.1)
+  answer_key_v2.jsonl          its answer key, every answer checked against the filing
+  build_answer_key.py          builds + verifies answer_key_v2.jsonl
+  run_experiments.py           systems A/B/C x models on v2 and FinanceBench; grading; summary (8.3)
+  judge.py                     LLM grader for free-text answers
+  questions_numeric.jsonl      MVP: the 25 numeric questions (8.5)
+  answer_key_numeric.jsonl     MVP: their answer key
+  verify_answer_key.py         MVP: builds + verifies that key (its helpers are reused by build_answer_key.py)
+  run_eval.py                  MVP: workflow vs baseline B on the 25 questions; retrieval experiment
+  RESULTS.md, EXAMPLES.md      MVP results and example answers
+  questions_all_types.jsonl    old mixed set (explanatory + edge cases); its "why" questions moved into v2
   results/                     output files of every run
-    checkpoints/               saved per-question results (resume support)
-    old_mixed_set/             results from the earlier mixed-question runs
+data/financebench/             FinanceBench questions (financebench_open_source.jsonl) and document list
 ```
 
-### 8.1 The questions
+### 8.1 Our question set (v2)
+
+`eval/questions_v2.jsonl`: 60 questions over 10 companies. The 5 pilot companies are asked about 2023 10-Qs; PepsiCo, Tesla, Abbott, IBM and Lockheed Martin about 2024 10-Qs, so the set goes beyond the data the system was built on.
+
+| Category | Test | Dev | Example |
+|---|---|---|---|
+| lookup | 10 | – | "What was Tesla's gross profit in Q3 2024?" |
+| change (YoY, QoQ) | 10 | – | "By what percentage did Tesla's revenue change in Q2 2024 compared with Q2 2023?" |
+| paraphrase | 8 | – | "What was Honeywell's bottom line in Q3 2023?" |
+| why | 12 | 8 | "Why did Tesla's automotive sales revenue fall in Q2 2024?" |
+| decline / clarify | 8 | 2 | unknown company (IKEA), Q4, 10-K, a metric the company doesn't report |
+| latest | 2 | – | "What was Tesla's revenue last quarter?" |
+
+The **dev** questions are only used to calibrate the search thresholds; all reported numbers use the **test** questions. Every "why" question has a `reason` (what a correct answer must say) and `evidence` phrases that occur in the filing.
+
+The answer key (`eval/build_answer_key.py`, run on the cloud database) is built and checked like the MVP key (8.5):
+- **Numbers** come from the database and must be found in a labelled row of the 10-Q's own statement table. A year-over-year change must be in one row together with its prior-year column. Quarter-over-quarter values are checked in their own filings. Derived cash-flow quarters are checked through the two year-to-date values they are computed from.
+- **"Why" evidence phrases** must occur in the filing text.
+- **Decline reasons** are checked where the database shows them (no matching company; no tag for the metric).
+
+All 60 are verified.
+
+### 8.2 FinanceBench (external test set)
+
+[FinanceBench](https://github.com/patronus-ai/financebench) (Patronus AI, CC-BY-NC 4.0) has 150 public questions about 84 filings of 32 US companies, each with a gold answer, a justification and the evidence page. It is mostly about 10-Ks and needs ratios, multi-step calculations and judgement ("Is 3M a capital-intensive business based on FY2022 data?"). We use it to show how the system does on questions written by others:
+- The filings are loaded as PDFs (section 5.4).
+- Every system gets the question and the correct document, as in FinanceBench's "single document" setting. System A still parses and routes the question, which sends almost every FinanceBench question to document QA.
+- Answers are graded against the gold answer by the LLM grader (8.4).
+
+### 8.3 Running the experiments
+
+The systems, as in the experiment plan (design plan 16.2):
+- **A** our workflow (`finqa.workflow.answer`)
+- **B** the whole correct filing + the question (`finqa/baseline.py`)
+- **C** the top 10 passages of the correct filing (same index and hybrid search as document QA) + the question, with no parsing, routing, code arithmetic or checks (`finqa/rag_baseline.py`)
+
+B and C always get the correct filing, which favours them.
+
+```bash
+.venv/bin/python eval/run_experiments.py run --set v2 --system A --llm claude --model claude-haiku-5-5
+```
+
+```bash
+.venv/bin/python eval/run_experiments.py run --set financebench --system C --llm hkust
+```
+
+Options: `--split test|dev`, `--limit N`. Every answer is appended to `eval/results/<set>/<system>__<model>.jsonl` right away, so a stopped run continues where it stopped and nothing is paid twice. Run the experiments where the cloud database is (or through an SSH tunnel to it, see docs/CLOUD.md), after the bulk pipeline has finished, so latency is not distorted by Spark.
+
+### 8.4 Grading and summary
+
+```bash
+.venv/bin/python eval/run_experiments.py grade --set v2
+```
+
+```bash
+.venv/bin/python eval/run_experiments.py summary --set v2
+```
+
+`grade` writes `graded_*.jsonl` next to each result file:
+- **Numbers** (lookup, change, paraphrase, latest): graded by code. The gold value must be in the answer to the precision the answer states ("$8.3 billion" is right for $8,325 million, "$8.4 billion" is not). For changes the percentage must also be right (±0.15 points or the stated precision).
+- **"Why" and FinanceBench answers:** graded by an LLM grader (`eval/judge.py`, one fixed model for every system, default `claude-opus-5-5`) against the reason or gold answer: correct, incorrect or declined. A person checks a sample of these grades, and the report gives the agreement.
+- **Should-decline questions:** system A must return abstain or clarify. For B and C, the grader decides whether the answer declines.
+
+`summary` prints per system and model: accuracy, declines where they were expected, declines where they were not, median latency and tokens, then accuracy per category.
+
+### 8.5 MVP evaluation (13 Nov, 25 numeric questions)
+
+The first evaluation compared the workflow with baseline B on 25 numeric questions for the pilot companies. It is kept because its results are in the slides.
+
+#### The questions
 
 There are 25 questions, 5 per company, spread over 10 metrics and Q1-Q3 2023:
 - 15 are simple lookups ("What was 3M's revenue in Q2 2023?").
@@ -303,7 +434,7 @@ The questions use different wording on purpose ("top line", "profit", "cash from
 
 Quarter-over-quarter and derived cash-flow questions are left out because the baseline only gets one filing, and those values aren't in it, so the comparison would be unfair.
 
-### 8.2 The answer key and how it is verified
+#### The answer key and how it is verified
 
 Command:
 
@@ -322,7 +453,7 @@ All 119 stored quarterly figures (not only the 25 in the questions) were checked
 
 Run this again whenever the questions or the data change. `run_eval.py` warns if the key has unverified rows.
 
-### 8.3 Running the evaluation
+#### Running the evaluation
 
 Command (workflow + baseline with Claude):
 
@@ -351,7 +482,7 @@ Output files in `eval/results/`:
 - `numeric_<model>_<time>.csv` has one row per question per side (good for charts).
 - `numeric_<model>_<time>.md` has the summary table.
 
-### 8.4 The four metrics and how they are scored
+#### The four metrics and how they are scored
 
 All scoring is in `eval/run_eval.py` (`score_system()` for the workflow, `score_baseline()` for the baseline).
 
@@ -369,7 +500,7 @@ All scoring is in `eval/run_eval.py` (`score_system()` for the workflow, `score_
 
 **Input/output tokens:** the LLM tokens per question (mean) and in total, as reported by the API (Claude) or counted by the tokenizer (Qwen). For the workflow it is one LLM call per numeric question.
 
-### 8.5 Results (13 Nov 2026, 25 questions)
+#### Results (13 Nov 2026, 25 questions)
 
 | | Workflow + Claude | Workflow + Qwen (local) | Baseline + Claude | Baseline + Qwen |
 |---|---|---|---|---|
@@ -389,7 +520,7 @@ Where the workflow's input tokens go:
 - For Claude, the API's structured output adds about 600 more.
 - The prompt used to be about 726 tokens for Qwen. It was cut by removing duplicated descriptions and the full JSON Schema, and by not running the explanation step for numeric questions.
 
-### 8.6 Retrieval experiment (for "why" questions, not part of the MVP)
+### 8.6 Retrieval experiment (search methods, MVP set)
 
 This compares the three search methods on the 12 "why" questions in `questions_all_types.jsonl`. Questions, data and filing filter are the same; only the search method changes. A hit means a passage containing the known evidence phrase is in the top k.
 
@@ -413,16 +544,15 @@ Fields: `question`, `method` (semantic / bm25 / hybrid), `llm` (a preset), `mode
 
 ## 10. Limitations and known issues
 
-- Small evaluation set: 5 companies, 2023 10-Qs, 25 numeric questions. The bulk load adds the numbers of every filer, but only the pilot companies have indexed text and a verified answer key.
-- Quarters are calendar quarters of the period end. For companies with a non-calendar fiscal year (e.g. NVIDIA), "Q2 2026" means April-June 2026, not their fiscal Q2.
-- Only consolidated figures, no segments. No annual (10-K) data, so no Q4.
-- Only the 10 metrics in config.py. Ratios and margins are declined.
-- The tag mapping is only verified against the filing documents for the pilot companies (see the Honeywell case). For bulk companies it is automatic and unverified.
-- Answer wording is a template. For example, a negative cash flow reads "-$784 million" instead of "used $784 million".
-- The workflow shows the XBRL standard label ("Operating Income (Loss)"), not the company's own line name ("Operating profit").
-- The baseline source check is a text match, not exact like the workflow's.
-- For 17 of the 25 Claude baseline answers and all Claude workflow answers, only the scores were kept from the first run; the text was lost in a crash. Newer runs save the full answers.
-- The "why" path is built but not evaluated well yet: its search thresholds are not calibrated and its explanation scoring is a simple phrase match.
+- Quarters are calendar quarters of the period end. For companies with a non-calendar fiscal year (e.g. NVIDIA), "Q2 2026" means April-June 2026, not their fiscal Q2. FinanceBench filings use the company's own fiscal labels ("FY 2024" for Walmart ends in January 2024).
+- The structured data (XBRL) covers 10-Qs only: 10 metrics, consolidated figures, no segments, no Q4. Everything else goes to document QA, which can only answer from filings whose text is loaded: 10-Q text for every filer, 10-Ks only for FinanceBench's filings.
+- 10-Q passages leave out tables, so ratio questions about a bulk 10-Q usually decline. For most filers only MD&A is indexed, and some filings have no recognisable MD&A heading and no text at all.
+- Document QA lets the LLM choose the inputs of a calculation (e.g. which balance sheet lines make up a "quick ratio"). Code checks that each input is printed in the filing and does the arithmetic, but it can't check that the LLM picked the right lines.
+- The tag mapping is only verified against the filing documents for the evaluation companies (see the Honeywell case). For bulk companies it is automatic and unverified.
+- Answer wording of the structured path is a template. For example, a negative cash flow reads "-$784 million" instead of "used $784 million". It also shows the XBRL standard label ("Operating Income (Loss)"), not the company's own line name ("Operating profit").
+- "Why" answers and FinanceBench answers are graded by an LLM; a person checks a sample.
+- The "why" search thresholds are calibrated on 8 dev questions only.
+- MVP run: for 17 of the 25 Claude baseline answers and all Claude workflow answers, only the scores were kept; the text was lost in a crash. Newer runs save the full answers.
 
 
 ## 11. Troubleshooting
@@ -432,3 +562,5 @@ Fields: `question`, `method` (semantic / bm25 / hybrid), `llm` (a preset), `mode
 - `connection refused` on port 5432: Postgres is not running. Start it with `docker compose up -d db`.
 - A port is already taken when starting Docker Compose: set `API_PORT`, `FRONTEND_PORT` (e.g. `API_PORT=8765 docker compose up -d`).
 - Qwen baseline shows "context_overflow". That is expected: a 10-Q doesn't fit into 32k tokens.
+- `pypdf` complains that `cryptography` is missing: some FinanceBench PDFs are encrypted. Install `pypdf[crypto]` (in requirements.txt).
+- Searches take seconds on the cloud database while the bulk pipeline runs: Spark keeps all cores busy. Measure latency after it has finished.
