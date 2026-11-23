@@ -20,7 +20,7 @@ MODEL_NAMES = {"claude:claude-haiku-5-5": "Haiku 5.5 (API)",
                "mlx:mlx-community/Qwen2.5-7B-Instruct-4bit": "Qwen2.5-7B (Mac, mlx)",
                "mlx:mlx-community/Qwen2.5-3B-Instruct-4bit": "Qwen2.5-3B (Mac, mlx)",
                "openai:qwen2.5:3b-instruct": "Qwen2.5-3B (EC2 CPU, Ollama)"}
-SYSTEM_NAMES = {"A": "A workflow", "A0": "A0 workflow, template answer", "C": "C simple RAG"}
+SYSTEM_NAMES = {"A": "A workflow", "A0": "A0 workflow, template answer", "C": "C simple RAG", "N": "N closed book (no retrieval)"}
 
 
 def load(path: Path) -> list[dict]:

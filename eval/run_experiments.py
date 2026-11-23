@@ -1,4 +1,4 @@
-"""Experiments of plan section 16: systems A/A0/C x models, on our question set (v2) and FinanceBench.
+"""Experiments of plan section 16: systems A/A0/C/N x models, on our question set (v2) and FinanceBench.
 
   python eval/run_experiments.py run --set v2 --system A --llm claude --model claude-haiku-5-5
   python eval/run_experiments.py grade --set v2
@@ -8,6 +8,7 @@ Systems:
   A  our workflow (finqa.workflow.answer); on FinanceBench it is given the document
   A0 ablation: the same workflow with the template answer instead of the LLM-written one
   C  simple RAG baseline: top passages of the correct filing + the question
+  N  closed-book baseline: only the question, no filing and no retrieval
 C always gets the correct filing (from the answer key / FinanceBench), which favours it.
 (The full-filing baseline B of the plan was dropped: expensive, and it mostly measures context size.)
 
@@ -18,7 +19,7 @@ stopped run resumes without paying twice. Grading is a separate step:
     new value or the absolute change (only the % if the question asks for a percentage).
   * v2 "why" and every FinanceBench answer: an LLM grader (eval/judge.py) compares the answer with
     the gold reason / answer and labels it correct, incorrect or declined.
-  * v2 "decline" questions: system A must return abstain/clarify; for C the grader decides
+  * v2 "decline" questions: system A must return abstain/clarify; for C and N the grader decides
     whether the answer declines.
 """
 from __future__ import annotations
@@ -57,11 +58,14 @@ def questions(name: str) -> list[dict]:
 
 # ---------------------------------------------------------------------------- running
 def ask(system: str, q: dict, set_name: str) -> dict:
+    from finqa.closed_book import closed_book_answer
     from finqa.rag_baseline import rag_answer
     from finqa.workflow import answer
     if system in ("A", "A0"):
         return answer(q["question"], document=q["accession"] if set_name == "financebench" else None,
                       writer=system == "A")
+    if system == "N":
+        return closed_book_answer(q["question"])
     if not q.get("accession"):  # questions without a filing (unknown company, no company named)
         return {"status": "no_document", "answer": "", "usage": {}, "latency_s": 0}
     return rag_answer(q["question"], q["accession"])
@@ -130,6 +134,11 @@ def pct_in(text: str, gold_pct: float) -> bool:
     return False
 
 
+# How a free-text baseline says it can't answer (for numeric questions, graded by code without the LLM grader)
+_DECLINE = re.compile(r"\b(I (do not|don't) (know|have)|not (able|possible) to|unable to|cannot (provide|answer|confirm|verify)|"
+                      r"(do not|don't) have (access|information|data|reliable))", re.I)
+
+
 def grade_row(q: dict, row: dict, judge) -> dict:
     gold, cat, text = q["gold"], q["category"], row["answer"] or ""
     declined_status = row["status"] in ("abstain", "clarify", "no_document")
@@ -147,6 +156,8 @@ def grade_row(q: dict, row: dict, judge) -> dict:
                 ok = ok and (value_in(text, gold["value"]) or value_in(text, gold["abs_change"]))
         else:
             ok = gold.get("value") is not None and value_in(text, gold["value"])
+        if not ok and row["system"] == "N" and _DECLINE.search(text):
+            return {"verdict": "declined", "correct": False}
         return {"verdict": "correct" if ok else "incorrect", "correct": ok}
     reference = gold["reason"] if "reason" in gold else f"{gold['answer']}\nJustification: {gold['justification']}"
     v = judge.grade(q["question"], reference, text)
@@ -242,7 +253,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("step", choices=["run", "grade", "summary", "agreement"])
     ap.add_argument("--set", default="v2", choices=["v2", "financebench"])
-    ap.add_argument("--system", choices=["A", "A0", "C"])
+    ap.add_argument("--system", choices=["A", "A0", "C", "N"])
     ap.add_argument("--llm", help="LLM preset (claude, hkust, qwen, ...)")
     ap.add_argument("--model", help="model id, e.g. claude-haiku-5-5")
     ap.add_argument("--split", choices=["test", "dev"])

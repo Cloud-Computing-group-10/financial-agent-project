@@ -58,6 +58,7 @@ finqa/                     all the system code
   docqa.py                 document QA path: search one filing, cited answer, formulas computed by code
   pdf_docs.py              FinanceBench filings (PDF) -> documents + page passages
   rag_baseline.py          baseline C: top passages of the filing + question to the LLM
+  closed_book.py           baseline N: only the question, no filing and no retrieval
   writer.py                final answer written by the LLM from verified facts only (checked by code)
   timing.py                per-step timings for the latency experiment
   cli.py                   command line entry point
@@ -355,7 +356,7 @@ eval/
   questions_v2.jsonl           our question set: 50 test + 10 dev questions, 10 companies (8.1)
   answer_key_v2.jsonl          its answer key, every answer checked against the filing
   build_answer_key.py          builds + verifies answer_key_v2.jsonl
-  run_experiments.py           systems A/A0/C x models on v2 and FinanceBench; grading; summary (8.3)
+  run_experiments.py           systems A/A0/C/N x models on v2 and FinanceBench; grading; summary (8.3)
   judge.py                     LLM grader for free-text answers
   retrieval_eval.py            BM25 vs semantic vs hybrid search, no LLM (8.5)
   load_test.py                 concurrent users against one instance, no LLM (E4)
@@ -400,6 +401,7 @@ The systems, as in the experiment plan (design plan 16.2):
 - **A** our workflow (`finqa.workflow.answer`)
 - **A0** the same workflow with the template answer instead of the LLM-written one (ablation: what the writer costs in tokens and latency, and whether it ever loses a number)
 - **C** the top 10 passages of the correct filing (same index and hybrid search as document QA) + the question, with no parsing, routing, code arithmetic or checks (`finqa/rag_baseline.py`)
+- **N** closed book: only the question, no filing and no retrieval (`finqa/closed_book.py`). It shows what the model knows from its training data alone, and so why retrieval is needed: it can't know filings after its cutoff and can't cite a filing it never saw. Added after the main runs; not run yet.
 
 C always gets the correct filing, which favours it. (The plan also had a baseline B, the whole filing plus the question. It was dropped: it is the expensive cell and mostly measures how many tokens fit into a context window.)
 
@@ -426,7 +428,8 @@ Options: `--split test|dev`, `--limit N`, `--sample N` (a fixed random sample, s
 `grade` writes `graded_*.jsonl` next to each result file:
 - **Numbers** (lookup, change, paraphrase, latest): graded by code. The gold value must be in the answer to the precision the answer states ("$8.3 billion" is right for $8,325 million, "$8.4 billion" is not). For changes the percentage must also be right (±0.15 points or the stated precision).
 - **"Why" and FinanceBench answers:** graded by an LLM grader (`eval/judge.py`, one fixed model for every system, default `claude-haiku-5-5`) against the reason or gold answer: correct, incorrect or declined. `agreement` regrades 60 of them with a stronger model (54/60 agree with Sonnet 5.5) and writes `eval/results/grader_check.csv` for a person to check.
-- **Should-decline questions:** system A must return abstain or clarify. For C, the grader decides whether the answer declines.
+- **Should-decline questions:** system A must return abstain or clarify. For C and N, the grader decides whether the answer declines.
+- **Declines of N on number questions** are recognised by phrases like "I don't have", so they count as declined, not wrong.
 
 `eval/summarize.py` turns all result files (E1 to E5) into `eval/RESULTS_v2.md`.
 

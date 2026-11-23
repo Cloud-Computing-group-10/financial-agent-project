@@ -261,7 +261,7 @@ continues where it stopped, without paying twice. The commands below run on the 
 cloud database (tunnel from step 4 open, `DATABASE_URL` exported).
 
 Systems: **A** our workflow, **A0** the workflow with template answers (no writer LLM), **C** simple
-RAG over the same filing. Models: `--llm claude --model claude-haiku-5-5`, `--llm qwen` (Qwen2.5-7B
+RAG over the same filing, **N** closed book (only the question, no retrieval). Models: `--llm claude --model claude-haiku-5-5`, `--llm qwen` (Qwen2.5-7B
 via mlx), `--llm qwen-3b` (Qwen2.5-3B via mlx).
 
 **[laptop]** Our question set, test split (50 questions), all 9 combinations:
@@ -303,6 +303,23 @@ Then copy the result file to the laptop so it is graded with the others:
 ```bash
 rsync -av -e "ssh -i ~/.ssh/finqa.pem" "ubuntu@<host>:financial-agent-project/eval/results/v2/A__openai_qwen2.5_3b-instruct.jsonl" eval/results/v2/
 ```
+
+**[laptop]** Closed-book baseline N (added after the main runs; not run yet). It needs no database, so neither the instance nor the tunnel. Our test set with all three models, then FinanceBench (Haiku on all 150, Qwen on the same 50-question sample):
+
+```bash
+for m in "claude --model claude-haiku-5-5" "qwen" "qwen-3b"; do .venv/bin/python eval/run_experiments.py run --set v2 --split test --system N --llm $m; done
+```
+
+```bash
+.venv/bin/python eval/run_experiments.py run --set financebench --system N --llm claude --model claude-haiku-5-5
+```
+
+```bash
+for m in qwen qwen-3b; do .venv/bin/python eval/run_experiments.py run --set financebench --system N --llm $m --sample 50; done
+```
+
+N costs a few cents with Haiku (about 100 input tokens per question) and takes well under an hour
+for both Qwen models. Then grade (step 7) and summarize (step 9) as for the other systems.
 
 Rough run times: Haiku 10-30 minutes per combination; Qwen on the Mac 30-60 minutes per combination
 (most of it LLM time, plus the tunnel); Ollama on the CPU about 30 minutes.
