@@ -15,7 +15,7 @@ Every answer is appended to eval/results/<set>/<system>__<model>.jsonl as soon a
 stopped run resumes without paying twice. Grading is a separate step:
   * numbers (v2 lookup/change/paraphrase/latest): the gold value must appear in the answer text,
     to the precision the answer states; for a change, the percentage (+-0.15 points) and either the
-    new value or the absolute change.
+    new value or the absolute change (only the % if the question asks for a percentage).
   * v2 "why" and every FinanceBench answer: an LLM grader (eval/judge.py) compares the answer with
     the gold reason / answer and labels it correct, incorrect or declined.
   * v2 "decline" questions: system A must return abstain/clarify; for B and C the grader decides
@@ -74,12 +74,21 @@ def result_path(set_name: str, system: str, model: str) -> Path:
     return RESULTS / set_name / f"{system}__{model.replace('/', '_')}.jsonl"
 
 
-def run(set_name: str, system: str, split: str | None, limit: int | None) -> None:
+def sample_ids(set_name: str, n: int) -> set[str]:
+    """A fixed random sample of the set's questions (seed 0), the same for every system and model."""
+    import random
+    ids = sorted(q["id"] for q in questions(set_name))
+    return set(random.Random(0).sample(ids, n))
+
+
+def run(set_name: str, system: str, split: str | None, limit: int | None, sample: int | None = None) -> None:
     from finqa import llm
     path = result_path(set_name, system, llm.model_name())
     path.parent.mkdir(parents=True, exist_ok=True)
     done = {r["id"] for r in load(path)}
-    todo = [q for q in questions(set_name) if q["id"] not in done and (not split or q["split"] == split)][:limit]
+    chosen = sample_ids(set_name, sample) if sample else None
+    todo = [q for q in questions(set_name) if q["id"] not in done and (not split or q["split"] == split)
+            and (chosen is None or q["id"] in chosen)][:limit]
     print(f"{system} / {llm.model_name()} / {set_name}: {len(done)} done, {len(todo)} to run -> {path}")
     for q in todo:
         try:
@@ -135,8 +144,10 @@ def grade_row(q: dict, row: dict, judge) -> dict:
     if declined_status:
         return {"verdict": "declined", "correct": False}
     if cat in NUMERIC:
-        if gold.get("pct_change") is not None:  # a change: the % plus the new value or the change itself
-            ok = pct_in(text, gold["pct_change"]) and (value_in(text, gold["value"]) or value_in(text, gold["abs_change"]))
+        if gold.get("pct_change") is not None:  # a change: the %, plus the new value or the change itself
+            ok = pct_in(text, gold["pct_change"])  # unless the question asks only for the percentage
+            if not re.search(r"percent", q["question"], re.I):
+                ok = ok and (value_in(text, gold["value"]) or value_in(text, gold["abs_change"]))
         else:
             ok = gold.get("value") is not None and value_in(text, gold["value"])
         return {"verdict": "correct" if ok else "incorrect", "correct": ok}
@@ -230,7 +241,7 @@ def summary(set_name: str) -> None:
 
 
 def main() -> None:
-    load_dotenv(HERE.parent / ".env")
+    load_dotenv(HERE.parent / ".env", override=True)  # the project key in .env, not one left in the shell
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("step", choices=["run", "grade", "summary", "agreement"])
     ap.add_argument("--set", default="v2", choices=["v2", "financebench"])
@@ -239,11 +250,12 @@ def main() -> None:
     ap.add_argument("--model", help="model id, e.g. claude-haiku-5-5")
     ap.add_argument("--split", choices=["test", "dev"])
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--sample", type=int, help="only a fixed random sample of N questions (seed 0)")
     args = ap.parse_args()
     if args.step == "run":
         from finqa import llm
         llm.configure(args.llm, args.model)
-        run(args.set, args.system, args.split, args.limit)
+        run(args.set, args.system, args.split, args.limit, args.sample)
     elif args.step == "grade":
         grade(args.set)
     elif args.step == "agreement":
