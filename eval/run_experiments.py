@@ -6,6 +6,7 @@
 
 Systems:
   A  our workflow (finqa.workflow.answer); on FinanceBench it is given the document
+  A0 ablation: the same workflow with the template answer instead of the LLM-written one
   B  full-document baseline: the whole correct filing + the question
   C  simple RAG baseline: top passages of the correct filing + the question
 B and C always get the correct filing (from the answer key / FinanceBench), which favours them.
@@ -58,8 +59,9 @@ def ask(system: str, q: dict, set_name: str) -> dict:
     from finqa.baseline import baseline_answer
     from finqa.rag_baseline import rag_answer
     from finqa.workflow import answer
-    if system == "A":
-        return answer(q["question"], document=q["accession"] if set_name == "financebench" else None)
+    if system in ("A", "A0"):
+        return answer(q["question"], document=q["accession"] if set_name == "financebench" else None,
+                      writer=system == "A")
     if not q.get("accession"):  # questions without a filing (unknown company, no company named)
         return {"status": "no_document", "answer": "", "usage": {}, "latency_s": 0}
     if system == "B":
@@ -88,6 +90,7 @@ def run(set_name: str, system: str, split: str | None, limit: int | None) -> Non
         row = {"id": q["id"], "system": system, "model": llm.model_name(), "status": res.get("status"),
                "answer": res.get("answer", ""), "route": res.get("trace", {}).get("route"),
                "flags": res.get("flags", []), "citations": [c.get("text", "")[:300] for c in res.get("citations", [])],
+               "writer": res.get("trace", {}).get("writer"),
                "latency_s": res.get("latency_s"), "input_tokens": u.get("input_tokens", 0),
                "output_tokens": u.get("output_tokens", 0), "llm_calls": u.get("llm_calls", 0)}
         with path.open("a") as f:
@@ -123,7 +126,7 @@ def grade_row(q: dict, row: dict, judge) -> dict:
     gold, cat, text = q["gold"], q["category"], row["answer"] or ""
     declined_status = row["status"] in ("abstain", "clarify", "no_document")
     if q.get("expect") in ("decline", "clarify"):
-        if row["system"] == "A" or declined_status:
+        if row["system"] in ("A", "A0") or declined_status:
             return {"verdict": "declined" if declined_status else "answered", "correct": declined_status}
         v = judge.grade(q["question"], f"The question must be declined: {gold['decline_reason']}.", text)
         return {"verdict": v["verdict"], "correct": v["verdict"] == "declined", "reason": v["reason"]}
@@ -188,7 +191,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("step", choices=["run", "grade", "summary"])
     ap.add_argument("--set", default="v2", choices=["v2", "financebench"])
-    ap.add_argument("--system", choices=["A", "B", "C"])
+    ap.add_argument("--system", choices=["A", "A0", "B", "C"])
     ap.add_argument("--llm", help="LLM preset (claude, hkust, qwen, ...)")
     ap.add_argument("--model", help="model id, e.g. claude-haiku-5-5")
     ap.add_argument("--split", choices=["test", "dev"])

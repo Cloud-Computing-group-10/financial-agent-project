@@ -362,3 +362,11 @@ Replaces the deployment parts of section 17 (Learner Lab, EMR). The cloud is a n
 6. **Baseline C** (`finqa/rag_baseline.py`) uses the same index and search as document QA (hybrid, top 10) without parsing, routing, code arithmetic or checks, so A vs C isolates what the workflow adds around retrieval.
 7. **Year-over-year comparisons** now use the prior-year column of the same 10-Q (restated figures, like the company itself compares). Found while verifying the answer key: J&J's Q3 2023 revenue is +6.8% against restated 2022 (after the Kenvue spin-off), but −10.3% against the original 2022 filing.
 8. **Question set v2** (`eval/questions_v2.jsonl`): 50 test + 10 dev questions over the 5 pilot companies (2023) and PepsiCo, Tesla, Abbott, IBM, Lockheed Martin (2024); all 60 answers verified against the filings (README 8.1).
+
+## **20\. LLM-written answers (23 November)**
+
+1. **Why.** The structured paths answered with a fixed template. Fluent answers are one of the main benefits of an LLM, so the last step is now an LLM call that writes the answer from the verified facts.
+2. **How.** The writer (`finqa/writer.py`) gets the question and the facts with references: figures from SQL with their sources, the change computed in SQL, the cited reasons, assumptions and flags. It never sees filing text. Code checks that every number in its answer occurs in the facts or the question and that every reference exists; otherwise the template answer is used and the rejection is recorded.
+3. **Cost.** One more call: numeric questions now use 2 calls (about 1,500 input tokens instead of 1,000 with Haiku), "why" questions 3. First checks: about 1-2 s more per answer, all numbers kept.
+4. **Ablation A0.** The same workflow with the template answer. A vs A0 measures the writer's cost (tokens, latency) and its rejection rate, i.e. how often it would have changed or invented a number without the check.
+

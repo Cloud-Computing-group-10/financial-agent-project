@@ -17,6 +17,7 @@ def main():
     ap.add_argument("question")
     ap.add_argument("--method", default="semantic", choices=["semantic", "bm25", "hybrid"])
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--no-writer", action="store_true", help="template answer instead of the LLM-written one")
     ap.add_argument("--baseline", action="store_true", help="run the full-document LLM baseline instead")
     ap.add_argument("--ticker", help="baseline only: company of the filing to give the model")
     ap.add_argument("--period", help="baseline only: quarter of the filing, e.g. 'Q2 2023'")
@@ -32,7 +33,7 @@ def main():
         res = baseline_answer(a.question, a.ticker, a.period)
         print(json.dumps(res, indent=2) if a.json else res["answer"])
         return
-    res = answer(a.question, method=a.method)
+    res = answer(a.question, method=a.method, writer=False if a.no_writer else None)
     print(json.dumps(res, indent=2, default=str) if a.json else render(res))
 
 

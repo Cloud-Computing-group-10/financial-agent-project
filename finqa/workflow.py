@@ -15,6 +15,7 @@ from .companies import find_companies
 from .config import MAX_ROUNDS, METRICS, MIN_PASSAGES, THRESHOLDS, TOP_K
 from .db import connect
 from .docqa import answer_from_document
+from .writer import write
 from .parse import ParsedQuestion, parse_question
 from .search import MDA, search
 
@@ -237,6 +238,11 @@ def compose_explanation(q: str, passages: list[dict], num: dict | None, usage: l
 
 
 # ============================================================================ main entry
+def write_enabled() -> bool:
+    from . import writer
+    return writer.ENABLED
+
+
 def structured(p: ParsedQuestion) -> bool:
     """Questions the structured path answers: one of our metrics (or a "why") for a 10-Q quarter.
     Everything else (ratios, full years, other line items, text questions) goes to document QA."""
@@ -244,9 +250,34 @@ def structured(p: ParsedQuestion) -> bool:
     return not p.unsupported_reason and quarter and (p.metric is not None or p.qtype == "explanatory")
 
 
-def answer(question: str, method: str = "semantic", document: str | None = None) -> dict:
+def facts_for_writer(res: dict, company: dict) -> str:
+    """The verified facts of a structured answer, each with its reference, for the answer writer."""
+    lines = []
+    for f in res["figures"]:
+        lines.append(f"[{f['ref']}] {company['name']}, {METRICS[f['metric']]['label'].lower()}, {f['period']}: "
+                     f"{fmt_value(f['value'], f['unit'])} (source: {f['locator']})")
+    ch = res.get("change")
+    if ch:
+        kind = "year over year" if ch["compare"] == "yoy" else "quarter over quarter"
+        direction = "up" if ch["abs_change"] > 0 else "down" if ch["abs_change"] < 0 else "unchanged"
+        pct = f"{abs(ch['pct_change']):.1f}%" if ch["pct_change"] is not None else "n/a"
+        unit = res["figures"][0]["unit"]
+        lines.append(f"Change from {ch['from']} to {ch['to']} ({kind}, computed in SQL): {direction} {pct} "
+                     f"({fmt_value(abs(ch['abs_change']), unit)})")
+    if res.get("claims"):
+        lines.append("Reasons given in the filing:")
+        lines += [f"- {c['text']} " + "".join(f"[C{i}]" for i in c["chunk_ids"]) for c in res["claims"]]
+    lines += [f"Assumption: {a}" for a in res["assumptions"]] + [f"Flag: {f}" for f in res["flags"]]
+    return "\n".join(lines)
+
+
+def answer(question: str, method: str = "semantic", document: str | None = None,
+           writer: bool | None = None) -> dict:
     """document: accession of the filing to use (evaluation runs on FinanceBench give the document,
-    as in its "single document" setting). Without it the filing is found from the question."""
+    as in its "single document" setting). Without it the filing is found from the question.
+    writer: let the LLM write the final answer of the structured paths from the verified facts
+    (default: finqa.writer.ENABLED); off gives the template answer (ablation A0)."""
+    writer = write_enabled() if writer is None else writer
     t0 = time.time()
     usage = llm.Usage()
     trace: dict = {"method": method}
@@ -376,8 +407,12 @@ def answer(question: str, method: str = "semantic", document: str | None = None)
                              "url": h["url"], "text": h["text"][:500]} for h in passages if h["chunk_id"] in used]
         res["claims"] = claims
 
-    # 5. output
-    return done("answered", "\n\n".join(parts))
+    # 5. output: the template answer, or the writer's version of the same facts if it passes the checks
+    text = "\n\n".join(parts)
+    res["answer_template"] = text
+    if writer:
+        text = write(question, facts_for_writer(res, company), usage, trace) or text
+    return done("answered", text)
 
 
 def render(res: dict) -> str:

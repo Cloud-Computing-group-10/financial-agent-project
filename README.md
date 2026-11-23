@@ -274,7 +274,11 @@ Step 4: checks.
 - Two filings report different values for the same quarter (a restatement): both are shown and flagged.
 - No period in the question: the latest quarter is used and the answer says so ("Assumptions: ...").
 
-Step 5: answer (`render_numeric()` + `figure_locator()`). The sentence is a fixed template filled with the numbers. Each number gets a citation [F1], [F2] built from the database row: filing title, accession, statement, line label, XBRL tag, period.
+Step 5: answer. First code builds a template answer (`render_numeric()`) with a citation [F1], [F2] for each number, built from the database row (`figure_locator()`: filing title, accession, statement, line label, XBRL tag, period). Then the **answer writer** (`finqa/writer.py`, one more LLM call) turns the verified facts into a natural answer:
+- It gets only the question and the facts with their references ("[F1] 3M Company, net sales / revenue, Q2 2023: $8.325 billion (source: ...)", the change computed in SQL, the reasons with [C…] references, assumptions and flags). It never sees filing text.
+- Code checks its answer: every number must occur in the facts or the question, and every reference must be one of the facts'. If a check fails, the template answer is used and the problem is recorded in the trace (`trace.writer`).
+- Example: "3M's net sales fell year over year in the second quarter of 2023. Net sales were $8.325 billion in Q2 2023, compared with $8.702 billion in Q2 2022 [F1][F2]. The computed change is a decrease of 4.3%, or $377 million."
+- Turn it off with `FINQA_WRITER=off`, `--no-writer` (CLI) or `"writer": false` (API); the experiments run it off as ablation A0.
 
 Possible statuses: answered, abstain (declined), clarify (asks back), partial, error.
 
@@ -311,7 +315,7 @@ All LLM calls go through `finqa/llm.py`:
 - `parse()` asks for structured JSON that is validated against a Pydantic model; it is used by the parser, the "why" explainer and document QA.
 - `text()` is free text, used by the baselines B and C.
 
-LLM calls per question: 1 for a numeric question, 2 for a "why" question or document QA (parse + answer).
+LLM calls per question: 2 for a numeric question (parse + writer), 3 for a "why" question (parse + claims + writer), 2 for document QA (parse + answer). Without the writer, one fewer for numeric and "why".
 
 Choose the model with `--llm` (and optionally `--model`) on the CLI and the eval script:
 
@@ -387,6 +391,7 @@ All 60 are verified.
 
 The systems, as in the experiment plan (design plan 16.2):
 - **A** our workflow (`finqa.workflow.answer`)
+- **A0** the same workflow with the template answer instead of the LLM-written one (ablation: what the writer costs in tokens and latency, and whether it ever loses a number)
 - **B** the whole correct filing + the question (`finqa/baseline.py`)
 - **C** the top 10 passages of the correct filing (same index and hybrid search as document QA) + the question, with no parsing, routing, code arithmetic or checks (`finqa/rag_baseline.py`)
 

@@ -25,6 +25,7 @@ class AskRequest(BaseModel):
     method: Literal["semantic", "bm25", "hybrid"] = "semantic"
     llm: str | None = None    # preset: claude | hkust | chatgpt | qwen | qwen-14b | mlx | ollama | openai
     model: str | None = None  # override the preset's model id
+    writer: bool | None = None  # LLM writes the final answer (default: on, FINQA_WRITER)
 
 
 @app.get("/health")
@@ -42,7 +43,7 @@ def ask(req: AskRequest):
         with _lock:
             llm.configure(req.llm, req.model)
             try:
-                return answer(req.question, method=req.method)
+                return answer(req.question, method=req.method, writer=req.writer)
             finally:
                 llm.configure()  # back to the server default
-    return answer(req.question, method=req.method)
+    return answer(req.question, method=req.method, writer=req.writer)

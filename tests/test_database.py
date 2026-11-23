@@ -39,11 +39,13 @@ def test_find_companies(loaded):
     assert find_companies(loaded, "Initech") == []
 
 
-def ask(monkeypatch, parsed: ParsedQuestion) -> dict:
-    """Run the workflow with a fixed parse instead of an LLM call."""
+def ask(monkeypatch, parsed: ParsedQuestion, writer_reply: str | None = None) -> dict:
+    """Run the workflow with a fixed parse instead of an LLM call. With writer_reply, the answer
+    writer is on and its LLM call returns that text; otherwise the template answer is used."""
     monkeypatch.setattr(workflow, "parse_question", lambda q, usage: parsed)
     monkeypatch.setattr(workflow, "connect", lambda: db.connect(TEST_DATABASE_URL))
-    return workflow.answer("test question")
+    monkeypatch.setattr(workflow.llm, "text", lambda *args, **kwargs: writer_reply)
+    return workflow.answer("test question", writer=writer_reply is not None)
 
 
 def test_numeric_lookup_with_year_over_year_change(loaded, monkeypatch):
@@ -77,3 +79,21 @@ def test_jointly_filed_10q_keeps_each_companys_figures(conn):
     rows = conn.execute("""SELECT d.company_id, f.value FROM figures f JOIN documents d USING (report_id)
                            WHERE f.metric = 'net_sales' AND f.period = 'Q2 2023' ORDER BY 1""").fetchall()
     assert [(r["company_id"], r["value"]) for r in rows] == [(1, 120.0), (5, 12.0)]
+
+
+YOY = ParsedQuestion(company="ACME", metric="net_sales", period="Q2 2023", qtype="numeric", compare="yoy")
+
+
+def test_writer_answer_is_used_when_it_keeps_the_facts(loaded, monkeypatch):
+    reply = "Acme's revenue was $120 [F1], up 20.0% from $100 a year earlier [F2]."
+    res = ask(monkeypatch, YOY, writer_reply=reply)
+    assert res["answer"] == reply and res["trace"]["writer"]["used"]
+    assert res["answer_template"].startswith("Acme Widgets Inc's net sales")
+
+
+def test_writer_answer_with_a_changed_number_is_rejected(loaded, monkeypatch):
+    res = ask(monkeypatch, YOY, writer_reply="Acme's revenue was $125 [F1], up 25% [F2].")
+    assert res["answer"] == res["answer_template"]          # falls back to the template
+    assert "numbers not in the facts" in res["trace"]["writer"]["problems"][0]
+    res = ask(monkeypatch, YOY, writer_reply="Acme's revenue was $120 [F7].")
+    assert "unknown references" in res["trace"]["writer"]["problems"][0]
