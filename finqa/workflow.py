@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from . import llm
 from .companies import find_companies
-from .config import MAX_ROUNDS, METRICS, MIN_PASSAGES, THRESHOLDS, TOP_K
+from .config import MAX_ROUNDS, METRICS, MIN_PASSAGES, SEARCH_METHOD, THRESHOLDS, TOP_K
 from .db import connect
 from .docqa import answer_from_document
 from .timing import timed
@@ -198,7 +198,7 @@ def _rewrite_query(q: str, p: ParsedQuestion) -> str:
 
 def retrieve(conn, q: str, p: ParsedQuestion, report_id: int, method: str, trace: dict) -> tuple[list[dict], bool]:
     """Search MD&A first (round 1), then the whole report with a rewritten query (round 2)."""
-    th = THRESHOLDS[method]
+    th = THRESHOLDS
     query = q
     passages: list[dict] = []
     for rnd in range(1, MAX_ROUNDS + 1):
@@ -207,14 +207,14 @@ def retrieve(conn, q: str, p: ParsedQuestion, report_id: int, method: str, trace
         trace.setdefault("search_rounds", []).append(
             {"round": rnd, "query": query, "section": section or "all", "method": method,
              "top_scores": [h["score"] for h in hits]})
-        good = [h for h in hits if h["score"] >= th["min"]]
+        good = [h for h in hits if h["similarity"] >= th["min"]]
         # keep the best passages seen across rounds
         seen = {h["chunk_id"] for h in passages}
         passages = sorted(passages + [h for h in hits if h["chunk_id"] not in seen], key=lambda h: -h["score"])[:TOP_K]
-        if hits and hits[0]["score"] >= th["top"] and len(good) >= MIN_PASSAGES:
+        if hits and max(h["similarity"] for h in hits) >= th["top"] and len(good) >= MIN_PASSAGES:
             return passages, True
         query = _rewrite_query(q, p)
-    strong = bool(passages) and passages[0]["score"] >= th["top"]
+    strong = bool(passages) and max(h["similarity"] for h in passages) >= th["top"]
     return passages, strong
 
 
@@ -272,7 +272,7 @@ def facts_for_writer(res: dict, company: dict) -> str:
     return "\n".join(lines)
 
 
-def answer(question: str, method: str = "semantic", document: str | None = None,
+def answer(question: str, method: str = SEARCH_METHOD, document: str | None = None,
            writer: bool | None = None) -> dict:
     """document: accession of the filing to use (evaluation runs on FinanceBench give the document,
     as in its "single document" setting). Without it the filing is found from the question.

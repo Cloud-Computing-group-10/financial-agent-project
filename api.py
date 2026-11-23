@@ -22,7 +22,7 @@ app = FastAPI(title="10-Q cited QA", version="0.1.0")
 
 class AskRequest(BaseModel):
     question: str
-    method: Literal["semantic", "bm25", "hybrid"] = "semantic"
+    method: Literal["semantic", "bm25", "hybrid"] = "hybrid"
     llm: str | None = None    # preset: claude | hkust | chatgpt | qwen | qwen-14b | mlx | ollama | openai
     model: str | None = None  # override the preset's model id
     writer: bool | None = None  # LLM writes the final answer (default: on, FINQA_WRITER)

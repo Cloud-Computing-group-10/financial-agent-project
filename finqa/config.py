@@ -137,8 +137,9 @@ TOP_K = 5
 MAX_ROUNDS = 2 
 MIN_PASSAGES = 2
 # Per-method thresholds (to be calibrated on a dev set -- see plan 15.3).
-THRESHOLDS = {
-    "semantic": {"top": 0.55, "min": 0.40},  # cosine similarity (MiniLM)
-    "bm25": {"top": 8.0, "min": 4.0},        # raw BM25 score
-    "hybrid": {"top": 0.030, "min": 0.020},  # RRF score
-}
+# Evidence check of the "why" path, on the cosine similarity of the passages (whatever method ranks
+# them; BM25 and RRF scores are not comparable across questions). Calibrated on the 8 dev questions
+# (eval/retrieval_eval.py, 23 Nov): the lowest top similarity of a dev search that found its
+# evidence was 0.464, so 0.45 keeps every one of them; 0.55 would have declined 3 of 8.
+THRESHOLDS = {"top": 0.45, "min": 0.40}
+SEARCH_METHOD = "hybrid"  # best hit@5 on the dev questions in MD&A (0.88 vs 0.75 semantic, 0.62 BM25)

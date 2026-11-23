@@ -95,7 +95,7 @@ def main() -> None:
             presets = health["presets"]
         llm = st.selectbox("LLM", presets, index=presets.index("claude") if "claude" in presets else 0)
         model = st.text_input("Model id (optional)", placeholder="preset default")
-        method = st.radio("Search method (for 'why' questions)", ["semantic", "bm25", "hybrid"])
+        method = st.radio("Search method (for 'why' questions)", ["hybrid", "semantic", "bm25"])
 
         st.header("Examples")
         for example in EXAMPLES:

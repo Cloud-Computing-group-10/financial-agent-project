@@ -15,7 +15,7 @@ def main():
     load_dotenv()
     ap = argparse.ArgumentParser()
     ap.add_argument("question")
-    ap.add_argument("--method", default="semantic", choices=["semantic", "bm25", "hybrid"])
+    ap.add_argument("--method", default="hybrid", choices=["semantic", "bm25", "hybrid"])
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--no-writer", action="store_true", help="template answer instead of the LLM-written one")
     ap.add_argument("--baseline", action="store_true", help="run the full-document LLM baseline instead")
