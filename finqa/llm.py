@@ -54,7 +54,6 @@ _LOCAL_SERVER = {"url": os.environ.get("FINQA_OPENAI_URL", "http://localhost:114
 ENDPOINTS = {
     "openai": _LOCAL_SERVER,
     "ollama": _LOCAL_SERVER,
-    # gpt-4.1 has a ~1M-token context, so the full-10-Q baseline fits. Change if you pick another model.
     "chatgpt": {"url": os.environ.get("FINQA_CHATGPT_URL", "https://api.openai.com/v1"), "key_env": "OPENAI_API_KEY",
                 "context": int(os.environ.get("FINQA_CHATGPT_CONTEXT", "1000000")), "max_out": 16000},
     # HKUST's Azure API gateway speaks the OpenAI protocol. gpt-4o-mini has a 128k context.
@@ -107,11 +106,6 @@ def model_name() -> str:
     return f"{BACKEND}:{MODEL}"
 
 
-def context_limit() -> int | None:
-    """Max input tokens for the active backend (None = effectively unlimited for our docs)."""
-    return None if BACKEND == "claude" else LOCAL_CONTEXT
-
-
 def available() -> bool:
     if os.environ.get("FINQA_OFFLINE") == "1":
         return False
@@ -148,7 +142,7 @@ def parse(name: str, system: str, user: str, schema: type[BaseModel], usage: Usa
 
 def text(name: str, system: str, user: str, usage: Usage, max_tokens: int = 16000,
          effort: str | None = None) -> str:
-    """Plain text completion (used by the baseline)."""
+    """Plain text completion (used by the writer and the RAG baseline)."""
     if BACKEND == "claude":
         return _claude_text(name, system, user, usage, max_tokens, effort)
     return _local_chat(name, system, user, usage, max_tokens)

@@ -179,7 +179,3 @@ def read_filing(path: Path) -> str:
         data = gzip.decompress(data)
     return data.decode("utf-8", errors="ignore")
 
-
-def filing_plaintext(html: str) -> str:
-    """Whole document as plain text (used by the full-document baseline)."""
-    return "\n".join(html_to_lines(html))

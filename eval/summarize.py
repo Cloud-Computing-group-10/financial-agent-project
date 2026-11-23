@@ -109,7 +109,7 @@ def retrieval_tables() -> list[str]:
 
 
 def latency_table() -> list[str]:
-    rows = load(R / "v2" / "A__openai:qwen2.5:3b-instruct.jsonl")
+    rows = load(R / "v2" / "A__openai_qwen2.5_3b-instruct.jsonl")
     qs = questions("v2")
     steps = ["llm_parse", "sql_company", "sql_filing", "sql_figures", "search_embed", "search_db",
              "search_rank", "llm_explain", "llm_writer"]

@@ -7,7 +7,9 @@ The main idea: the LLM reads the question and turns it into a few fields (compan
 - **"Why" questions about a quarter:** the MD&A section of that 10-Q is searched, and the LLM writes claims that must cite the retrieved passages.
 - **Everything else** (ratios, full years, other line items, text questions): document QA. The LLM answers from passages of the right filing. For a calculation it only extracts the cited inputs and a formula, and code computes the result.
 
-We compare this "workflow" (system A) against two baselines with the same LLM: the whole filing plus the question (B), and a simple RAG pipeline (C). We test on our own verified question set and on the external FinanceBench benchmark (section 8).
+We compare this "workflow" (system A) against a simple RAG pipeline with the same LLM (system C), with Claude Haiku and with local Qwen 7B/3B models. We test on our own verified question set and on the external FinanceBench benchmark (section 8).
+
+**To rebuild everything from scratch and rerun every experiment, follow [REPRODUCE.md](REPRODUCE.md).** It lists every command in order, with run times, costs and the numbers you should get.
 
 The design and the reasons behind it are in `Cloud Computing Project Design Plan.md`; section 15 lists what changed while building it, and section 16 is the experiment plan.
 
@@ -55,14 +57,15 @@ finqa/                     all the system code
   workflow.py              router + structured paths: SQL lookup, "why" search, checks, answer with sources
   docqa.py                 document QA path: search one filing, cited answer, formulas computed by code
   pdf_docs.py              FinanceBench filings (PDF) -> documents + page passages
-  baseline.py              baseline B: whole filing + question to the LLM
   rag_baseline.py          baseline C: top passages of the filing + question to the LLM
+  writer.py                final answer written by the LLM from verified facts only (checked by code)
+  timing.py                per-step timings for the latency experiment
   cli.py                   command line entry point
 spark/facts_job.py         Spark job: SEC bulk XBRL file -> figures
 spark/text_job.py          Spark job: downloaded 10-Qs -> passages + embeddings
-cloud/                     scripts for the EC2 instance (setup, bulk download, whole pipeline, S3 copy)
+cloud/                     scripts for the EC2 instance (setup, bulk download, whole pipeline, scaling experiment, S3 copy)
 tests/                     pytest tests (run in GitHub Actions on every push)
-eval/                      evaluation (see section 8)
+eval/                      evaluation (see section 8); eval/results/ holds every answer and grade of the reported runs
 docker-compose.yml         Postgres + API + frontend
 Dockerfile                 one image for API, frontend, ingestion and Spark
 docs/CLOUD.md              how to run it on AWS (EC2 + S3)
@@ -209,6 +212,10 @@ Only the **MD&A section** is kept for most filers. Embedding is the slow step: a
 The FinanceBench test set (section 8) asks about 84 filings, mostly 10-Ks. They are loaded from the PDFs that FinanceBench publishes:
 
 ```bash
+.venv/bin/python -m finqa.pdf_docs --download
+```
+
+```bash
 .venv/bin/python -m finqa.pdf_docs
 ```
 
@@ -313,7 +320,7 @@ A: 3M's FY2018 capital expenditure (purchases of property, plant and equipment) 
 
 All LLM calls go through `finqa/llm.py`:
 - `parse()` asks for structured JSON that is validated against a Pydantic model; it is used by the parser, the "why" explainer and document QA.
-- `text()` is free text, used by the baselines B and C.
+- `text()` is free text, used by the writer and baseline C.
 
 LLM calls per question: 2 for a numeric question (parse + writer), 3 for a "why" question (parse + claims + writer), 2 for document QA (parse + answer). Without the writer, one fewer for numeric and "why".
 
@@ -330,13 +337,13 @@ Choose the model with `--llm` (and optionally `--model`) on the CLI and the eval
 | ollama / openai | an OpenAI-compatible server, e.g. the `ollama` service in docker-compose.yml (CPU) | qwen2.5:7b-instruct |
 | ollama-3b | the same server | qwen2.5:3b-instruct |
 
-Example: `--llm claude --model claude-sonnet-5-5`. You can also set `FINQA_LLM` and `FINQA_MODEL` as environment variables.
+Example: `--llm claude --model claude-haiku-5-5` (the model used for every reported Claude run). You can also set `FINQA_LLM` and `FINQA_MODEL` as environment variables.
 
 Differences between the backends:
 - Claude uses the API's structured outputs, so the JSON is always valid. This adds about 600 input tokens per call on the API side.
 - ChatGPT, Ollama and other OpenAI-compatible servers use JSON mode plus the same validation as the local models (next point).
 - Local models get a short JSON "shape" in the prompt. Their reply is validated with the same Pydantic model, and if it is invalid the model gets one retry showing its error.
-- Local models have a 32k token context (`FINQA_LOCAL_CONTEXT`). The baseline refuses to run when the filing doesn't fit, instead of cutting the filing.
+- Local models have a 32k token context (`FINQA_LOCAL_CONTEXT`, 16k for the Ollama container). A prompt that doesn't fit is refused, never cut.
 
 
 ## 8. Evaluation
@@ -348,15 +355,13 @@ eval/
   questions_v2.jsonl           our question set: 50 test + 10 dev questions, 10 companies (8.1)
   answer_key_v2.jsonl          its answer key, every answer checked against the filing
   build_answer_key.py          builds + verifies answer_key_v2.jsonl
-  run_experiments.py           systems A/B/C x models on v2 and FinanceBench; grading; summary (8.3)
+  run_experiments.py           systems A/A0/C x models on v2 and FinanceBench; grading; summary (8.3)
   judge.py                     LLM grader for free-text answers
-  questions_numeric.jsonl      MVP: the 25 numeric questions (8.5)
-  answer_key_numeric.jsonl     MVP: their answer key
-  verify_answer_key.py         MVP: builds + verifies that key (its helpers are reused by build_answer_key.py)
-  run_eval.py                  MVP: workflow vs baseline B on the 25 questions; retrieval experiment
-  RESULTS.md, EXAMPLES.md      MVP results and example answers
-  questions_all_types.jsonl    old mixed set (explanatory + edge cases); its "why" questions moved into v2
-  results/                     output files of every run
+  retrieval_eval.py            BM25 vs semantic vs hybrid search, no LLM (8.5)
+  load_test.py                 concurrent users against one instance, no LLM (E4)
+  summarize.py                 all result tables -> RESULTS_v2.md
+  RESULTS_v2.md                the final result tables
+  results/                     every answer and grade of the reported runs (results/archive: old MVP runs, not in git)
 data/financebench/             FinanceBench questions (financebench_open_source.jsonl) and document list
 ```
 
@@ -375,8 +380,8 @@ data/financebench/             FinanceBench questions (financebench_open_source.
 
 The **dev** questions are only used to calibrate the search thresholds; all reported numbers use the **test** questions. Every "why" question has a `reason` (what a correct answer must say) and `evidence` phrases that occur in the filing.
 
-The answer key (`eval/build_answer_key.py`, run on the cloud database) is built and checked like the MVP key (8.5):
-- **Numbers** come from the database and must be found in a labelled row of the 10-Q's own statement table. A year-over-year change must be in one row together with its prior-year column. Quarter-over-quarter values are checked in their own filings. Derived cash-flow quarters are checked through the two year-to-date values they are computed from.
+The answer key (`eval/build_answer_key.py`, run on the cloud database) is drafted from the database and then checked against the filing documents themselves, which are an independent rendering of the numbers:
+- **Numbers** come from the database and must be found in a labelled row of the 10-Q's own statement table (e.g. "Operating profit | 3,652 | 1,944"). This check once found a real error: Honeywell's `OperatingIncomeLoss` tag is its total segment profit, not operating income, so the tag is now excluded. A year-over-year change must be in one row together with its prior-year column. Quarter-over-quarter values are checked in their own filings. Derived cash-flow quarters are checked through the two year-to-date values they are computed from.
 - **"Why" evidence phrases** must occur in the filing text.
 - **Decline reasons** are checked where the database shows them (no matching company; no tag for the metric).
 
@@ -394,10 +399,9 @@ All 60 are verified.
 The systems, as in the experiment plan (design plan 16.2):
 - **A** our workflow (`finqa.workflow.answer`)
 - **A0** the same workflow with the template answer instead of the LLM-written one (ablation: what the writer costs in tokens and latency, and whether it ever loses a number)
-- **B** the whole correct filing + the question (`finqa/baseline.py`). Built, but left out of the main runs: it mostly measures how many tokens fit into a context window, and it is the expensive cell.
 - **C** the top 10 passages of the correct filing (same index and hybrid search as document QA) + the question, with no parsing, routing, code arithmetic or checks (`finqa/rag_baseline.py`)
 
-B and C always get the correct filing, which favours them.
+C always gets the correct filing, which favours it. (The plan also had a baseline B, the whole filing plus the question. It was dropped: it is the expensive cell and mostly measures how many tokens fit into a context window.)
 
 ```bash
 .venv/bin/python eval/run_experiments.py run --set v2 --system A --llm claude --model claude-haiku-5-5
@@ -407,7 +411,7 @@ B and C always get the correct filing, which favours them.
 .venv/bin/python eval/run_experiments.py run --set financebench --system C --llm hkust
 ```
 
-Options: `--split test|dev`, `--limit N`. Every answer is appended to `eval/results/<set>/<system>__<model>.jsonl` right away, so a stopped run continues where it stopped and nothing is paid twice. Run the experiments where the cloud database is (or through an SSH tunnel to it, see docs/CLOUD.md), after the bulk pipeline has finished, so latency is not distorted by Spark.
+Options: `--split test|dev`, `--limit N`, `--sample N` (a fixed random sample, seed 0, the same for every system). Every answer is appended to `eval/results/<set>/<system>__<model>.jsonl` right away, so a stopped run continues where it stopped and nothing is paid twice. Run the experiments where the cloud database is (or through an SSH tunnel to it, see docs/CLOUD.md), after the bulk pipeline has finished, so latency is not distorted by Spark.
 
 ### 8.4 Grading and summary
 
@@ -421,132 +425,22 @@ Options: `--split test|dev`, `--limit N`. Every answer is appended to `eval/resu
 
 `grade` writes `graded_*.jsonl` next to each result file:
 - **Numbers** (lookup, change, paraphrase, latest): graded by code. The gold value must be in the answer to the precision the answer states ("$8.3 billion" is right for $8,325 million, "$8.4 billion" is not). For changes the percentage must also be right (±0.15 points or the stated precision).
-- **"Why" and FinanceBench answers:** graded by an LLM grader (`eval/judge.py`, one fixed model for every system, default `claude-opus-5-5`) against the reason or gold answer: correct, incorrect or declined. A person checks a sample of these grades, and the report gives the agreement.
-- **Should-decline questions:** system A must return abstain or clarify. For B and C, the grader decides whether the answer declines.
+- **"Why" and FinanceBench answers:** graded by an LLM grader (`eval/judge.py`, one fixed model for every system, default `claude-haiku-5-5`) against the reason or gold answer: correct, incorrect or declined. `agreement` regrades 60 of them with a stronger model (54/60 agree with Sonnet 5.5) and writes `eval/results/grader_check.csv` for a person to check.
+- **Should-decline questions:** system A must return abstain or clarify. For C, the grader decides whether the answer declines.
+
+`eval/summarize.py` turns all result files (E1 to E5) into `eval/RESULTS_v2.md`.
 
 `summary` prints per system and model: accuracy, declines where they were expected, declines where they were not, median latency and tokens, then accuracy per category.
 
 Every result row also stores the step timings of system A (`timings`: llm_parse, sql_company, sql_filing, sql_figures, search_embed, search_db, search_rank, llm_explain / llm_answer, llm_writer), for the latency breakdown.
 
-### 8.4b Retrieval experiment (no LLM)
+### 8.5 Retrieval experiment (no LLM)
 
 ```bash
 .venv/bin/python eval/retrieval_eval.py
 ```
 
 BM25 vs semantic vs hybrid search over the correct filing. On the v2 "why" questions a hit is a passage containing an evidence phrase (searched in MD&A, the workflow's first round, and in the whole filing). On FinanceBench a hit is a passage from one of the question's evidence pages. It reports hit@1/3/5/10, MRR@10 and search time, and prints the top scores of the dev questions to calibrate `THRESHOLDS`. `--terms` adds the parser's search terms to the query (one LLM call per question).
-
-### 8.5 MVP evaluation (13 Nov, 25 numeric questions)
-
-The first evaluation compared the workflow with baseline B on 25 numeric questions for the pilot companies. It is kept because its results are in the slides.
-
-#### The questions
-
-There are 25 questions, 5 per company, spread over 10 metrics and Q1-Q3 2023:
-- 15 are simple lookups ("What was 3M's revenue in Q2 2023?").
-- 9 ask for a year-over-year change ("How much did Caterpillar's operating profit change year over year in Q2 2023?"). These need the current value, the prior-year value and the % change.
-- 1 must be declined: N24, "What was Honeywell's operating income in Q2 2023?". Honeywell doesn't report operating income.
-
-The questions use different wording on purpose ("top line", "profit", "cash from operating activities", "net operating revenues") to test that the LLM maps them to the right metric.
-
-Quarter-over-quarter and derived cash-flow questions are left out because the baseline only gets one filing, and those values aren't in it, so the comparison would be unfair.
-
-#### The answer key and how it is verified
-
-Command:
-
-```bash
-.venv/bin/python eval/verify_answer_key.py
-```
-
-What it does:
-1. For each question it drafts the correct answer from the database (value, prior-year value, % change, the filing's accession number, statement, period).
-2. Then it checks that answer against the filing document itself, not the database. It opens the 10-Q HTML, goes through the table rows, and looks for a row whose label fits the metric (e.g. "sales" or "revenue" for net sales) and that contains the value as printed in the filing (in millions, e.g. "8,325", negative values in parentheses). For change questions the same row must also contain the prior-year value, i.e. current and comparison columns of the same line item.
-3. A value is only marked `verified: true` if such a row is found. The matching row is saved as `evidence_row`, e.g. "Operating profit | 3,652 | 1,944".
-
-This is a real check, because the XBRL data and the HTML tables are two different renderings of the filing. It found one real error: Honeywell's `OperatingIncomeLoss` tag is its total segment profit ($2,052M), not operating income. Without this check the system would have answered with a wrong number and a perfect-looking citation. The tag is now excluded and N24 expects a decline.
-
-All 119 stored quarterly figures (not only the 25 in the questions) were checked the same way; all match.
-
-Run this again whenever the questions or the data change. `run_eval.py` warns if the key has unverified rows.
-
-#### Running the evaluation
-
-Command (workflow + baseline with Claude):
-
-```bash
-.venv/bin/python eval/run_eval.py --llm claude
-```
-
-Same with local Qwen:
-
-```bash
-.venv/bin/python eval/run_eval.py --llm qwen
-```
-
-Options:
-- `--only system` or `--only baseline` runs just one side.
-- `--fresh` ignores saved checkpoints and reruns everything. With Claude that costs about $8 again.
-- `--model <id>` uses a different model.
-
-What it does for each question:
-- **Workflow:** calls `answer(question)`, the same code as the CLI.
-- **Baseline:** calls `baseline_answer(question, company, period)`. It gets the correct filing for that question, so it is a generous baseline. The prompt is `INSTRUCTION` in `finqa/baseline.py`: answer only from the filing, cite the statement/section, line item and period for every number, and say so if the evidence isn't there. The whole 10-Q is converted to plain text and sent with the question. For Claude that is 44k to 122k tokens per filing.
-- **Scoring:** the answer is scored and the result is saved right away to `eval/results/checkpoints/<model>_<side>.jsonl`. If the run stops (out of credits, network error), run the same command again and it continues where it stopped; already answered questions are not paid again.
-
-Output files in `eval/results/`:
-- `numeric_<model>_<time>.json` has the summary plus every question with answer, scores, tokens and LLM steps.
-- `numeric_<model>_<time>.csv` has one row per question per side (good for charts).
-- `numeric_<model>_<time>.md` has the summary table.
-
-#### The four metrics and how they are scored
-
-All scoring is in `eval/run_eval.py` (`score_system()` for the workflow, `score_baseline()` for the baseline).
-
-**Accuracy: is the number right?**
-- Workflow: the returned figure must equal the answer key exactly. For change questions the prior-year figure must also be right and the % change within 0.05 points. For N24 the status must be "abstain".
-- Baseline: free text, so the answer must contain the correct value. It may be written in millions or billions, but only rounding of up to 0.1% is accepted, which matches the filing's own precision. For change questions it must also contain the prior-year value and the % change, correct to the precision it states ("41%" for 40.83% is fine, "40.6%" is not). For N24 it must say up front that the figure isn't reported.
-- A baseline that couldn't run (context overflow) counts as wrong.
-
-**Data source accuracy: is the cited source the right one?**
-- Workflow: the citation comes from the database row, not from the LLM. It must have the correct filing (accession number from the answer key), the correct statement and the correct quarter. For change questions the second figure must be the prior-year quarter. For N24 no figure may be cited.
-- Baseline: free text, so the answer must name the correct statement (e.g. "Statement of Results of Operations", "Statement of Cash Flows") and the correct period ("three months ended June 30, 2023", "Q2 2023"). This is looser than the workflow check.
-- Note: in the workflow the statement name comes from our fixed metric list, so it is correct once the metric is right. The things that can really go wrong are the filing, the quarter and the tag, and those are what this catches.
-
-**Latency:** wall-clock seconds per question, including the LLM call(s) and the database. Median, mean and max are reported.
-
-**Input/output tokens:** the LLM tokens per question (mean) and in total, as reported by the API (Claude) or counted by the tokenizer (Qwen). For the workflow it is one LLM call per numeric question.
-
-#### Results (13 Nov 2026, 25 questions)
-
-| | Workflow + Claude | Workflow + Qwen (local) | Baseline + Claude | Baseline + Qwen |
-|---|---|---|---|---|
-| Accuracy | 25/25 | 25/25 | 25/25 | 0/25 (did not fit) |
-| Data source accuracy | 25/25 | 25/25 | 25/25 | 0/25 |
-| Latency, median | 1.8 s | 1.9 s | 7.3 s | - |
-| Input tokens per question | 1,063 | 385 | 79,622 | - |
-| Output tokens per question | 56 | 45 | 763 | - |
-| API cost for 25 questions | about $0.13 | $0 | about $8.30 | - |
-
-In short: with Claude both are fully accurate, but the workflow needs about 75x fewer input tokens and is about 4x faster. Qwen-7B on a laptop gets 25/25 in the workflow but can't run the baseline at all, because a 10-Q doesn't fit in its 32k context.
-
-Two baseline grader rules were corrected after the Claude run (rounding of % and how a decline is detected). The saved answers were re-scored, not re-run. Before the fix the baseline had 23/25. Details are in `eval/RESULTS.md`; example answers are in `eval/EXAMPLES.md`.
-
-Where the workflow's input tokens go:
-- The question itself is about 16 tokens. The rest is the fixed prompt: instructions plus the metric list, and the JSON shape, about 90. (In the MVP run the prompt also listed the 5 companies; since the company lookup moved to the database it no longer does, and Haiku now uses about 1,000 input tokens per question.)
-- For Claude, the API's structured output adds about 600 more.
-- The prompt used to be about 726 tokens for Qwen. It was cut by removing duplicated descriptions and the full JSON Schema, and by not running the explanation step for numeric questions.
-
-### 8.6 Retrieval experiment (search methods, MVP set)
-
-This compares the three search methods on the 12 "why" questions in `questions_all_types.jsonl`. Questions, data and filing filter are the same; only the search method changes. A hit means a passage containing the known evidence phrase is in the top k.
-
-```bash
-.venv/bin/python eval/run_eval.py retrieval
-```
-
-It is not used for numeric questions because nothing is searched there: the lookup is exact (company, metric, period), and its correctness is what data source accuracy measures. Last result: BM25 hit@3 0.75, semantic 0.42, hybrid 0.50; hybrid has the best hit@1 (0.50). With 12 questions this is not conclusive.
-
 
 ## 9. Web API
 
@@ -569,7 +463,6 @@ Fields: `question`, `method` (semantic / bm25 / hybrid), `llm` (a preset), `mode
 - Answer wording of the structured path is a template. For example, a negative cash flow reads "-$784 million" instead of "used $784 million". It also shows the XBRL standard label ("Operating Income (Loss)"), not the company's own line name ("Operating profit").
 - "Why" answers and FinanceBench answers are graded by an LLM; a person checks a sample.
 - The "why" search thresholds are calibrated on 8 dev questions only.
-- MVP run: for 17 of the 25 Claude baseline answers and all Claude workflow answers, only the scores were kept; the text was lost in a crash. Newer runs save the full answers.
 
 
 ## 11. Troubleshooting
@@ -578,6 +471,5 @@ Fields: `question`, `method` (semantic / bm25 / hybrid), `llm` (a preset), `mode
 - "credit balance is too low" means the Anthropic account has no credits. Top up, then rerun the same eval command (it resumes).
 - `connection refused` on port 5432: Postgres is not running. Start it with `docker compose up -d db`.
 - A port is already taken when starting Docker Compose: set `API_PORT`, `FRONTEND_PORT` (e.g. `API_PORT=8765 docker compose up -d`).
-- Qwen baseline shows "context_overflow". That is expected: a 10-Q doesn't fit into 32k tokens.
 - `pypdf` complains that `cryptography` is missing: some FinanceBench PDFs are encrypted. Install `pypdf[crypto]` (in requirements.txt).
 - Searches take seconds on the cloud database while the bulk pipeline runs: Spark keeps all cores busy. Measure latency after it has finished.

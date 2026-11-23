@@ -1,0 +1,3608 @@
+{
+ "semantic": [
+  {
+   "id": "financebench_id_03029",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5869,
+   "seconds": 0.0278
+  },
+  {
+   "id": "financebench_id_04672",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 0.5378,
+   "seconds": 0.0123
+  },
+  {
+   "id": "financebench_id_00499",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6321,
+   "seconds": 0.0327
+  },
+  {
+   "id": "financebench_id_01226",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6366,
+   "seconds": 0.0163
+  },
+  {
+   "id": "financebench_id_01865",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.601,
+   "seconds": 0.0154
+  },
+  {
+   "id": "financebench_id_00807",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4761,
+   "seconds": 0.0126
+  },
+  {
+   "id": "financebench_id_00941",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6519,
+   "seconds": 0.0077
+  },
+  {
+   "id": "financebench_id_01858",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5918,
+   "seconds": 0.0067
+  },
+  {
+   "id": "financebench_id_02987",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.6294,
+   "seconds": 0.0187
+  },
+  {
+   "id": "financebench_id_07966",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 8,
+   "top_score": 0.5714,
+   "seconds": 0.0135
+  },
+  {
+   "id": "financebench_id_04735",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5394,
+   "seconds": 0.0169
+  },
+  {
+   "id": "financebench_id_07507",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6058,
+   "seconds": 0.0127
+  },
+  {
+   "id": "financebench_id_03856",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5191,
+   "seconds": 0.0123
+  },
+  {
+   "id": "financebench_id_00438",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5074,
+   "seconds": 0.0131
+  },
+  {
+   "id": "financebench_id_00591",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5577,
+   "seconds": 0.0073
+  },
+  {
+   "id": "financebench_id_01319",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5808,
+   "seconds": 0.0217
+  },
+  {
+   "id": "financebench_id_00540",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 8,
+   "top_score": 0.5672,
+   "seconds": 0.0157
+  },
+  {
+   "id": "financebench_id_10420",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5099,
+   "seconds": 0.0172
+  },
+  {
+   "id": "financebench_id_06655",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5123,
+   "seconds": 0.015
+  },
+  {
+   "id": "financebench_id_08135",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.6146,
+   "seconds": 0.0082
+  },
+  {
+   "id": "financebench_id_08286",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.7026,
+   "seconds": 0.0133
+  },
+  {
+   "id": "financebench_id_03882",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5608,
+   "seconds": 0.0162
+  },
+  {
+   "id": "financebench_id_01935",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5347,
+   "seconds": 0.0033
+  },
+  {
+   "id": "financebench_id_00799",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4464,
+   "seconds": 0.018
+  },
+  {
+   "id": "financebench_id_01079",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5184,
+   "seconds": 0.0097
+  },
+  {
+   "id": "financebench_id_01148",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.6939,
+   "seconds": 0.0083
+  },
+  {
+   "id": "financebench_id_00684",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.526,
+   "seconds": 0.0098
+  },
+  {
+   "id": "financebench_id_01936",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.5313,
+   "seconds": 0.0062
+  },
+  {
+   "id": "financebench_id_01928",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6614,
+   "seconds": 0.0034
+  },
+  {
+   "id": "financebench_id_01930",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.6399,
+   "seconds": 0.0045
+  },
+  {
+   "id": "financebench_id_03069",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5115,
+   "seconds": 0.0292
+  },
+  {
+   "id": "financebench_id_00222",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4208,
+   "seconds": 0.0119
+  },
+  {
+   "id": "financebench_id_00995",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5628,
+   "seconds": 0.0077
+  },
+  {
+   "id": "financebench_id_01198",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.5374,
+   "seconds": 0.0076
+  },
+  {
+   "id": "financebench_id_00917",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.4861,
+   "seconds": 0.0087
+  },
+  {
+   "id": "financebench_id_01279",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.6518,
+   "seconds": 0.0084
+  },
+  {
+   "id": "financebench_id_00563",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.5125,
+   "seconds": 0.0079
+  },
+  {
+   "id": "financebench_id_00757",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.492,
+   "seconds": 0.0071
+  },
+  {
+   "id": "financebench_id_00476",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.6248,
+   "seconds": 0.0236
+  },
+  {
+   "id": "financebench_id_01028",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6183,
+   "seconds": 0.0133
+  },
+  {
+   "id": "financebench_id_00723",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5454,
+   "seconds": 0.014
+  },
+  {
+   "id": "financebench_id_00720",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4699,
+   "seconds": 0.0142
+  },
+  {
+   "id": "financebench_id_01351",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5479,
+   "seconds": 0.0132
+  },
+  {
+   "id": "financebench_id_01964",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6374,
+   "seconds": 0.0129
+  },
+  {
+   "id": "financebench_id_01981",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5707,
+   "seconds": 0.0122
+  },
+  {
+   "id": "financebench_id_05718",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.4787,
+   "seconds": 0.017
+  },
+  {
+   "id": "financebench_id_04254",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6736,
+   "seconds": 0.0164
+  },
+  {
+   "id": "financebench_id_00070",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6263,
+   "seconds": 0.0245
+  },
+  {
+   "id": "financebench_id_02608",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.5198,
+   "seconds": 0.0098
+  },
+  {
+   "id": "financebench_id_04417",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5623,
+   "seconds": 0.0106
+  },
+  {
+   "id": "financebench_id_00685",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5393,
+   "seconds": 0.0087
+  },
+  {
+   "id": "financebench_id_01077",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5687,
+   "seconds": 0.0067
+  },
+  {
+   "id": "financebench_id_01275",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6024,
+   "seconds": 0.007
+  },
+  {
+   "id": "financebench_id_00288",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5756,
+   "seconds": 0.0045
+  },
+  {
+   "id": "financebench_id_00460",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5471,
+   "seconds": 0.0043
+  },
+  {
+   "id": "financebench_id_01902",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.513,
+   "seconds": 0.0047
+  },
+  {
+   "id": "financebench_id_04660",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.4187,
+   "seconds": 0.0147
+  },
+  {
+   "id": "financebench_id_03838",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.4413,
+   "seconds": 0.0186
+  },
+  {
+   "id": "financebench_id_07661",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.4994,
+   "seconds": 0.0106
+  },
+  {
+   "id": "financebench_id_10285",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.5853,
+   "seconds": 0.0106
+  },
+  {
+   "id": "financebench_id_00517",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6593,
+   "seconds": 0.0126
+  },
+  {
+   "id": "financebench_id_01091",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5636,
+   "seconds": 0.0092
+  },
+  {
+   "id": "financebench_id_00678",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5752,
+   "seconds": 0.0102
+  },
+  {
+   "id": "financebench_id_01290",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5819,
+   "seconds": 0.0086
+  },
+  {
+   "id": "financebench_id_00464",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.59,
+   "seconds": 0.0085
+  },
+  {
+   "id": "financebench_id_00494",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6003,
+   "seconds": 0.0092
+  },
+  {
+   "id": "financebench_id_00585",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.5985,
+   "seconds": 0.0092
+  },
+  {
+   "id": "financebench_id_03473",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.56,
+   "seconds": 0.0214
+  },
+  {
+   "id": "financebench_id_09724",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5471,
+   "seconds": 0.0171
+  },
+  {
+   "id": "financebench_id_06272",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.5719,
+   "seconds": 0.0205
+  },
+  {
+   "id": "financebench_id_10130",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.5164,
+   "seconds": 0.0164
+  },
+  {
+   "id": "financebench_id_02981",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.5845,
+   "seconds": 0.0133
+  },
+  {
+   "id": "financebench_id_01346",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5789,
+   "seconds": 0.0116
+  },
+  {
+   "id": "financebench_id_00005",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.6029,
+   "seconds": 0.01
+  },
+  {
+   "id": "financebench_id_04209",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5517,
+   "seconds": 0.0068
+  },
+  {
+   "id": "financebench_id_05915",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.529,
+   "seconds": 0.0388
+  },
+  {
+   "id": "financebench_id_00790",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6125,
+   "seconds": 0.0244
+  },
+  {
+   "id": "financebench_id_01107",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.6002,
+   "seconds": 0.0143
+  },
+  {
+   "id": "financebench_id_01244",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.7653,
+   "seconds": 0.014
+  },
+  {
+   "id": "financebench_id_00839",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6598,
+   "seconds": 0.0044
+  },
+  {
+   "id": "financebench_id_00822",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.3684,
+   "seconds": 0.0028
+  },
+  {
+   "id": "financebench_id_04103",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5646,
+   "seconds": 0.0199
+  },
+  {
+   "id": "financebench_id_03471",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.4815,
+   "seconds": 0.016
+  },
+  {
+   "id": "financebench_id_04854",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 0.4255,
+   "seconds": 0.0098
+  },
+  {
+   "id": "financebench_id_10136",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.585,
+   "seconds": 0.0116
+  },
+  {
+   "id": "financebench_id_00956",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.525,
+   "seconds": 0.0132
+  },
+  {
+   "id": "financebench_id_00669",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4495,
+   "seconds": 0.0103
+  },
+  {
+   "id": "financebench_id_00711",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4581,
+   "seconds": 0.0107
+  },
+  {
+   "id": "financebench_id_00651",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.4179,
+   "seconds": 0.0036
+  },
+  {
+   "id": "financebench_id_01484",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.5819,
+   "seconds": 0.0037
+  },
+  {
+   "id": "financebench_id_01488",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.625,
+   "seconds": 0.0057
+  },
+  {
+   "id": "financebench_id_01490",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.619,
+   "seconds": 0.0042
+  },
+  {
+   "id": "financebench_id_01491",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6463,
+   "seconds": 0.0043
+  },
+  {
+   "id": "financebench_id_01487",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.5493,
+   "seconds": 0.0042
+  },
+  {
+   "id": "financebench_id_00299",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.6037,
+   "seconds": 0.0187
+  },
+  {
+   "id": "financebench_id_02119",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5601,
+   "seconds": 0.0115
+  },
+  {
+   "id": "financebench_id_00206",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4877,
+   "seconds": 0.0451
+  },
+  {
+   "id": "financebench_id_00394",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5774,
+   "seconds": 0.016
+  },
+  {
+   "id": "financebench_id_02049",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6663,
+   "seconds": 0.0251
+  },
+  {
+   "id": "financebench_id_10499",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5206,
+   "seconds": 0.0173
+  },
+  {
+   "id": "financebench_id_04412",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6069,
+   "seconds": 0.0173
+  },
+  {
+   "id": "financebench_id_03031",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6403,
+   "seconds": 0.0184
+  },
+  {
+   "id": "financebench_id_03718",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6035,
+   "seconds": 0.0151
+  },
+  {
+   "id": "financebench_id_04171",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6456,
+   "seconds": 0.0171
+  },
+  {
+   "id": "financebench_id_03849",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.4768,
+   "seconds": 0.0157
+  },
+  {
+   "id": "financebench_id_01254",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.6576,
+   "seconds": 0.0169
+  },
+  {
+   "id": "financebench_id_00382",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.5084,
+   "seconds": 0.0036
+  },
+  {
+   "id": "financebench_id_01911",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5272,
+   "seconds": 0.0042
+  },
+  {
+   "id": "financebench_id_01912",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.4145,
+   "seconds": 0.0033
+  },
+  {
+   "id": "financebench_id_00407",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6646,
+   "seconds": 0.0058
+  },
+  {
+   "id": "financebench_id_04700",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5576,
+   "seconds": 0.0117
+  },
+  {
+   "id": "financebench_id_00552",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5126,
+   "seconds": 0.0111
+  },
+  {
+   "id": "financebench_id_04458",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.5112,
+   "seconds": 0.0101
+  },
+  {
+   "id": "financebench_id_03282",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6727,
+   "seconds": 0.0069
+  },
+  {
+   "id": "financebench_id_04302",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6342,
+   "seconds": 0.0142
+  },
+  {
+   "id": "financebench_id_03531",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.6983,
+   "seconds": 0.0116
+  },
+  {
+   "id": "financebench_id_04080",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.5737,
+   "seconds": 0.0121
+  },
+  {
+   "id": "financebench_id_01163",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.7506,
+   "seconds": 0.0111
+  },
+  {
+   "id": "financebench_id_00080",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5769,
+   "seconds": 0.0145
+  },
+  {
+   "id": "financebench_id_04980",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 8,
+   "top_score": 0.5538,
+   "seconds": 0.0325
+  },
+  {
+   "id": "financebench_id_01009",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6297,
+   "seconds": 0.0298
+  },
+  {
+   "id": "financebench_id_00735",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6001,
+   "seconds": 0.0202
+  },
+  {
+   "id": "financebench_id_01328",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5815,
+   "seconds": 0.0207
+  },
+  {
+   "id": "financebench_id_03620",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5205,
+   "seconds": 0.0231
+  },
+  {
+   "id": "financebench_id_04481",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4894,
+   "seconds": 0.022
+  },
+  {
+   "id": "financebench_id_01482",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.703,
+   "seconds": 0.0046
+  },
+  {
+   "id": "financebench_id_00705",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.8189,
+   "seconds": 0.0135
+  },
+  {
+   "id": "financebench_id_00882",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.7978,
+   "seconds": 0.0109
+  },
+  {
+   "id": "financebench_id_01474",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6467,
+   "seconds": 0.0037
+  },
+  {
+   "id": "financebench_id_01476",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.7103,
+   "seconds": 0.004
+  },
+  {
+   "id": "financebench_id_00302",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5419,
+   "seconds": 0.0167
+  },
+  {
+   "id": "financebench_id_00702",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.6376,
+   "seconds": 0.0116
+  },
+  {
+   "id": "financebench_id_02416",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6792,
+   "seconds": 0.0115
+  },
+  {
+   "id": "financebench_id_00283",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 8,
+   "top_score": 0.6329,
+   "seconds": 0.0099
+  },
+  {
+   "id": "financebench_id_00724",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.584,
+   "seconds": 0.0071
+  },
+  {
+   "id": "financebench_id_02419",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.633,
+   "seconds": 0.0063
+  },
+  {
+   "id": "financebench_id_00746",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.6484,
+   "seconds": 0.0094
+  },
+  {
+   "id": "financebench_id_00521",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5888,
+   "seconds": 0.007
+  },
+  {
+   "id": "financebench_id_00601",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6582,
+   "seconds": 0.0032
+  },
+  {
+   "id": "financebench_id_00603",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.7299,
+   "seconds": 0.0031
+  },
+  {
+   "id": "financebench_id_00605",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.6563,
+   "seconds": 0.0035
+  },
+  {
+   "id": "financebench_id_00606",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 0.7367,
+   "seconds": 0.0031
+  },
+  {
+   "id": "financebench_id_00859",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.6201,
+   "seconds": 0.0147
+  },
+  {
+   "id": "financebench_id_02024",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.6897,
+   "seconds": 0.009
+  },
+  {
+   "id": "financebench_id_00216",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.4689,
+   "seconds": 0.0133
+  },
+  {
+   "id": "financebench_id_00215",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.6639,
+   "seconds": 0.0087
+  },
+  {
+   "id": "financebench_id_00566",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.711,
+   "seconds": 0.0088
+  },
+  {
+   "id": "financebench_id_06247",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5511,
+   "seconds": 0.0299
+  },
+  {
+   "id": "financebench_id_04784",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.5697,
+   "seconds": 0.0112
+  },
+  {
+   "id": "financebench_id_06741",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.5387,
+   "seconds": 0.018
+  }
+ ],
+ "bm25": [
+  {
+   "id": "financebench_id_03029",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 14.2138,
+   "seconds": 0.0648
+  },
+  {
+   "id": "financebench_id_04672",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 22.9427,
+   "seconds": 0.0652
+  },
+  {
+   "id": "financebench_id_00499",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 8.3044,
+   "seconds": 0.0931
+  },
+  {
+   "id": "financebench_id_01226",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 25.2067,
+   "seconds": 0.0955
+  },
+  {
+   "id": "financebench_id_01865",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 14.8517,
+   "seconds": 0.0947
+  },
+  {
+   "id": "financebench_id_00807",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 29.8422,
+   "seconds": 0.0418
+  },
+  {
+   "id": "financebench_id_00941",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 27.9626,
+   "seconds": 0.0404
+  },
+  {
+   "id": "financebench_id_01858",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 9.9219,
+   "seconds": 0.0387
+  },
+  {
+   "id": "financebench_id_02987",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 28.7017,
+   "seconds": 0.0724
+  },
+  {
+   "id": "financebench_id_07966",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 21.9027,
+   "seconds": 0.0698
+  },
+  {
+   "id": "financebench_id_04735",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 30.2742,
+   "seconds": 0.0516
+  },
+  {
+   "id": "financebench_id_07507",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 13.0304,
+   "seconds": 0.0463
+  },
+  {
+   "id": "financebench_id_03856",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 33.704,
+   "seconds": 0.0461
+  },
+  {
+   "id": "financebench_id_00438",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 16.0246,
+   "seconds": 0.0414
+  },
+  {
+   "id": "financebench_id_00591",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 9.9986,
+   "seconds": 0.039
+  },
+  {
+   "id": "financebench_id_01319",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 25.4245,
+   "seconds": 0.101
+  },
+  {
+   "id": "financebench_id_00540",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 27.0325,
+   "seconds": 0.1022
+  },
+  {
+   "id": "financebench_id_10420",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 25.4382,
+   "seconds": 0.105
+  },
+  {
+   "id": "financebench_id_06655",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 28.2773,
+   "seconds": 0.0402
+  },
+  {
+   "id": "financebench_id_08135",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 9.7311,
+   "seconds": 0.0366
+  },
+  {
+   "id": "financebench_id_08286",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 14.6975,
+   "seconds": 0.0341
+  },
+  {
+   "id": "financebench_id_03882",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 12.3119,
+   "seconds": 0.0609
+  },
+  {
+   "id": "financebench_id_01935",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 6.5486,
+   "seconds": 0.006
+  },
+  {
+   "id": "financebench_id_00799",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 15.174,
+   "seconds": 0.0538
+  },
+  {
+   "id": "financebench_id_01079",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 8.8613,
+   "seconds": 0.0517
+  },
+  {
+   "id": "financebench_id_01148",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 11.7309,
+   "seconds": 0.0501
+  },
+  {
+   "id": "financebench_id_00684",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 13.9722,
+   "seconds": 0.0742
+  },
+  {
+   "id": "financebench_id_01936",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 8.4716,
+   "seconds": 0.0163
+  },
+  {
+   "id": "financebench_id_01928",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 7.4872,
+   "seconds": 0.0082
+  },
+  {
+   "id": "financebench_id_01930",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 5.7163,
+   "seconds": 0.0094
+  },
+  {
+   "id": "financebench_id_03069",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 25.0028,
+   "seconds": 0.0876
+  },
+  {
+   "id": "financebench_id_00222",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 11.7603,
+   "seconds": 0.0466
+  },
+  {
+   "id": "financebench_id_00995",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 12.3946,
+   "seconds": 0.0443
+  },
+  {
+   "id": "financebench_id_01198",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 5.5055,
+   "seconds": 0.0435
+  },
+  {
+   "id": "financebench_id_00917",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 16.2636,
+   "seconds": 0.0461
+  },
+  {
+   "id": "financebench_id_01279",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 21.6331,
+   "seconds": 0.0452
+  },
+  {
+   "id": "financebench_id_00563",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 13.4519,
+   "seconds": 0.0447
+  },
+  {
+   "id": "financebench_id_00757",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 6.3952,
+   "seconds": 0.0427
+  },
+  {
+   "id": "financebench_id_00476",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 30.8291,
+   "seconds": 0.0835
+  },
+  {
+   "id": "financebench_id_01028",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 12.5142,
+   "seconds": 0.0821
+  },
+  {
+   "id": "financebench_id_00723",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 17.6359,
+   "seconds": 0.0854
+  },
+  {
+   "id": "financebench_id_00720",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 20.1304,
+   "seconds": 0.0843
+  },
+  {
+   "id": "financebench_id_01351",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 14.2127,
+   "seconds": 0.0824
+  },
+  {
+   "id": "financebench_id_01964",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 11.8063,
+   "seconds": 0.0819
+  },
+  {
+   "id": "financebench_id_01981",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 15.7369,
+   "seconds": 0.0801
+  },
+  {
+   "id": "financebench_id_05718",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 17.4785,
+   "seconds": 0.0651
+  },
+  {
+   "id": "financebench_id_04254",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 32.3615,
+   "seconds": 0.072
+  },
+  {
+   "id": "financebench_id_00070",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 21.2502,
+   "seconds": 0.1054
+  },
+  {
+   "id": "financebench_id_02608",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 14.1705,
+   "seconds": 0.0405
+  },
+  {
+   "id": "financebench_id_04417",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 16.776,
+   "seconds": 0.0394
+  },
+  {
+   "id": "financebench_id_00685",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 15.6229,
+   "seconds": 0.033
+  },
+  {
+   "id": "financebench_id_01077",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 6.7949,
+   "seconds": 0.0313
+  },
+  {
+   "id": "financebench_id_01275",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 21.3166,
+   "seconds": 0.0317
+  },
+  {
+   "id": "financebench_id_00288",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 10.8511,
+   "seconds": 0.0128
+  },
+  {
+   "id": "financebench_id_00460",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 8.8201,
+   "seconds": 0.0127
+  },
+  {
+   "id": "financebench_id_01902",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 10.8497,
+   "seconds": 0.013
+  },
+  {
+   "id": "financebench_id_04660",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 25.2838,
+   "seconds": 0.0417
+  },
+  {
+   "id": "financebench_id_03838",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 16.2145,
+   "seconds": 0.0584
+  },
+  {
+   "id": "financebench_id_07661",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 19.5779,
+   "seconds": 0.0561
+  },
+  {
+   "id": "financebench_id_10285",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 21.4918,
+   "seconds": 0.0407
+  },
+  {
+   "id": "financebench_id_00517",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 10.1075,
+   "seconds": 0.0511
+  },
+  {
+   "id": "financebench_id_01091",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 14.5102,
+   "seconds": 0.0505
+  },
+  {
+   "id": "financebench_id_00678",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 21.536,
+   "seconds": 0.052
+  },
+  {
+   "id": "financebench_id_01290",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 10.4404,
+   "seconds": 0.0497
+  },
+  {
+   "id": "financebench_id_00464",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 5.611,
+   "seconds": 0.0493
+  },
+  {
+   "id": "financebench_id_00494",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 8.5366,
+   "seconds": 0.0496
+  },
+  {
+   "id": "financebench_id_00585",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 10.538,
+   "seconds": 0.0505
+  },
+  {
+   "id": "financebench_id_03473",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 18.5992,
+   "seconds": 0.0751
+  },
+  {
+   "id": "financebench_id_09724",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 13.4511,
+   "seconds": 0.0719
+  },
+  {
+   "id": "financebench_id_06272",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 23.0877,
+   "seconds": 0.0723
+  },
+  {
+   "id": "financebench_id_10130",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 41.1811,
+   "seconds": 0.0474
+  },
+  {
+   "id": "financebench_id_02981",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 13.2767,
+   "seconds": 0.047
+  },
+  {
+   "id": "financebench_id_01346",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 14.8301,
+   "seconds": 0.05
+  },
+  {
+   "id": "financebench_id_00005",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 31.7206,
+   "seconds": 0.0508
+  },
+  {
+   "id": "financebench_id_04209",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 15.2373,
+   "seconds": 0.0257
+  },
+  {
+   "id": "financebench_id_05915",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 28.0007,
+   "seconds": 0.1553
+  },
+  {
+   "id": "financebench_id_00790",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 8.857,
+   "seconds": 0.0885
+  },
+  {
+   "id": "financebench_id_01107",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 13.6815,
+   "seconds": 0.0922
+  },
+  {
+   "id": "financebench_id_01244",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 21.3612,
+   "seconds": 0.0913
+  },
+  {
+   "id": "financebench_id_00839",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 15.1471,
+   "seconds": 0.0133
+  },
+  {
+   "id": "financebench_id_00822",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 4.5479,
+   "seconds": 0.0045
+  },
+  {
+   "id": "financebench_id_04103",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 45.0798,
+   "seconds": 0.0603
+  },
+  {
+   "id": "financebench_id_03471",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 23.6726,
+   "seconds": 0.0499
+  },
+  {
+   "id": "financebench_id_04854",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 24.4351,
+   "seconds": 0.0492
+  },
+  {
+   "id": "financebench_id_10136",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 27.8739,
+   "seconds": 0.0486
+  },
+  {
+   "id": "financebench_id_00956",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 7.8234,
+   "seconds": 0.0565
+  },
+  {
+   "id": "financebench_id_00669",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 16.1357,
+   "seconds": 0.0582
+  },
+  {
+   "id": "financebench_id_00711",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 20.6126,
+   "seconds": 0.0584
+  },
+  {
+   "id": "financebench_id_00651",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 8.8629,
+   "seconds": 0.0087
+  },
+  {
+   "id": "financebench_id_01484",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 9.7125,
+   "seconds": 0.0088
+  },
+  {
+   "id": "financebench_id_01488",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 12.914,
+   "seconds": 0.0091
+  },
+  {
+   "id": "financebench_id_01490",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 14.6297,
+   "seconds": 0.0098
+  },
+  {
+   "id": "financebench_id_01491",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 16.4967,
+   "seconds": 0.0098
+  },
+  {
+   "id": "financebench_id_01487",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 10.8951,
+   "seconds": 0.0092
+  },
+  {
+   "id": "financebench_id_00299",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 12.1374,
+   "seconds": 0.0668
+  },
+  {
+   "id": "financebench_id_02119",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 13.6016,
+   "seconds": 0.0664
+  },
+  {
+   "id": "financebench_id_00206",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 17.7957,
+   "seconds": 0.1698
+  },
+  {
+   "id": "financebench_id_00394",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 11.5668,
+   "seconds": 0.0724
+  },
+  {
+   "id": "financebench_id_02049",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 19.6639,
+   "seconds": 0.0824
+  },
+  {
+   "id": "financebench_id_10499",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 28.9929,
+   "seconds": 0.0634
+  },
+  {
+   "id": "financebench_id_04412",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 27.9889,
+   "seconds": 0.0614
+  },
+  {
+   "id": "financebench_id_03031",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 34.7826,
+   "seconds": 0.059
+  },
+  {
+   "id": "financebench_id_03718",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 12.2511,
+   "seconds": 0.0556
+  },
+  {
+   "id": "financebench_id_04171",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 17.0217,
+   "seconds": 0.0744
+  },
+  {
+   "id": "financebench_id_03849",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 20.6953,
+   "seconds": 0.0657
+  },
+  {
+   "id": "financebench_id_01254",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 19.3559,
+   "seconds": 0.0723
+  },
+  {
+   "id": "financebench_id_00382",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 3.9332,
+   "seconds": 0.0079
+  },
+  {
+   "id": "financebench_id_01911",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 5.9971,
+   "seconds": 0.009
+  },
+  {
+   "id": "financebench_id_01912",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 3.9332,
+   "seconds": 0.0079
+  },
+  {
+   "id": "financebench_id_00407",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 10.1153,
+   "seconds": 0.0216
+  },
+  {
+   "id": "financebench_id_04700",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 8.5358,
+   "seconds": 0.0417
+  },
+  {
+   "id": "financebench_id_00552",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 9.4987,
+   "seconds": 0.0348
+  },
+  {
+   "id": "financebench_id_04458",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 23.7717,
+   "seconds": 0.0316
+  },
+  {
+   "id": "financebench_id_03282",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 12.7882,
+   "seconds": 0.0282
+  },
+  {
+   "id": "financebench_id_04302",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 17.0763,
+   "seconds": 0.045
+  },
+  {
+   "id": "financebench_id_03531",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 18.7112,
+   "seconds": 0.0393
+  },
+  {
+   "id": "financebench_id_04080",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 19.936,
+   "seconds": 0.0439
+  },
+  {
+   "id": "financebench_id_01163",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 21.0041,
+   "seconds": 0.038
+  },
+  {
+   "id": "financebench_id_00080",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 20.1174,
+   "seconds": 0.0489
+  },
+  {
+   "id": "financebench_id_04980",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 20.6975,
+   "seconds": 0.122
+  },
+  {
+   "id": "financebench_id_01009",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 7.736,
+   "seconds": 0.118
+  },
+  {
+   "id": "financebench_id_00735",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 8.5854,
+   "seconds": 0.1198
+  },
+  {
+   "id": "financebench_id_01328",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 19.4479,
+   "seconds": 0.1231
+  },
+  {
+   "id": "financebench_id_03620",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 47.1275,
+   "seconds": 0.1269
+  },
+  {
+   "id": "financebench_id_04481",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 34.1927,
+   "seconds": 0.126
+  },
+  {
+   "id": "financebench_id_01482",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 16.0415,
+   "seconds": 0.0061
+  },
+  {
+   "id": "financebench_id_00705",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 38.5496,
+   "seconds": 0.0544
+  },
+  {
+   "id": "financebench_id_00882",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 31.5822,
+   "seconds": 0.0541
+  },
+  {
+   "id": "financebench_id_01474",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 8.6544,
+   "seconds": 0.0072
+  },
+  {
+   "id": "financebench_id_01476",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 14.3894,
+   "seconds": 0.0077
+  },
+  {
+   "id": "financebench_id_00302",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 7.3741,
+   "seconds": 0.0679
+  },
+  {
+   "id": "financebench_id_00702",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 13.8566,
+   "seconds": 0.0696
+  },
+  {
+   "id": "financebench_id_02416",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 9.5053,
+   "seconds": 0.0703
+  },
+  {
+   "id": "financebench_id_00283",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 12.7679,
+   "seconds": 0.0309
+  },
+  {
+   "id": "financebench_id_00724",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 15.499,
+   "seconds": 0.0308
+  },
+  {
+   "id": "financebench_id_02419",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 11.7763,
+   "seconds": 0.0305
+  },
+  {
+   "id": "financebench_id_00746",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 23.9579,
+   "seconds": 0.0351
+  },
+  {
+   "id": "financebench_id_00521",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 6.5691,
+   "seconds": 0.0349
+  },
+  {
+   "id": "financebench_id_00601",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 5.187,
+   "seconds": 0.0057
+  },
+  {
+   "id": "financebench_id_00603",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 9.0611,
+   "seconds": 0.0057
+  },
+  {
+   "id": "financebench_id_00605",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 3.6051,
+   "seconds": 0.006
+  },
+  {
+   "id": "financebench_id_00606",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 4.9544,
+   "seconds": 0.0057
+  },
+  {
+   "id": "financebench_id_00859",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 36.8983,
+   "seconds": 0.0519
+  },
+  {
+   "id": "financebench_id_02024",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 10.4558,
+   "seconds": 0.0488
+  },
+  {
+   "id": "financebench_id_00216",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 20.7323,
+   "seconds": 0.0506
+  },
+  {
+   "id": "financebench_id_00215",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 7.8521,
+   "seconds": 0.048
+  },
+  {
+   "id": "financebench_id_00566",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 11.6639,
+   "seconds": 0.0477
+  },
+  {
+   "id": "financebench_id_06247",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 22.2449,
+   "seconds": 0.1009
+  },
+  {
+   "id": "financebench_id_04784",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 13.7286,
+   "seconds": 0.0475
+  },
+  {
+   "id": "financebench_id_06741",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 43.7151,
+   "seconds": 0.0656
+  }
+ ],
+ "hybrid": [
+  {
+   "id": "financebench_id_03029",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0301,
+   "seconds": 0.0594
+  },
+  {
+   "id": "financebench_id_04672",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0294,
+   "seconds": 0.0629
+  },
+  {
+   "id": "financebench_id_00499",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0305,
+   "seconds": 0.0874
+  },
+  {
+   "id": "financebench_id_01226",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 0.0308,
+   "seconds": 0.0878
+  },
+  {
+   "id": "financebench_id_01865",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 0.0325,
+   "seconds": 0.0868
+  },
+  {
+   "id": "financebench_id_00807",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0323,
+   "seconds": 0.0386
+  },
+  {
+   "id": "financebench_id_00941",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0323,
+   "seconds": 0.037
+  },
+  {
+   "id": "financebench_id_01858",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0356
+  },
+  {
+   "id": "financebench_id_02987",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.025,
+   "seconds": 0.0681
+  },
+  {
+   "id": "financebench_id_07966",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0282,
+   "seconds": 0.0654
+  },
+  {
+   "id": "financebench_id_04735",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0323,
+   "seconds": 0.0494
+  },
+  {
+   "id": "financebench_id_07507",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0301,
+   "seconds": 0.0445
+  },
+  {
+   "id": "financebench_id_03856",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0325,
+   "seconds": 0.0441
+  },
+  {
+   "id": "financebench_id_00438",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0269,
+   "seconds": 0.0389
+  },
+  {
+   "id": "financebench_id_00591",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0297,
+   "seconds": 0.0369
+  },
+  {
+   "id": "financebench_id_01319",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0309,
+   "seconds": 0.0947
+  },
+  {
+   "id": "financebench_id_00540",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 10,
+   "top_score": 0.0285,
+   "seconds": 0.0957
+  },
+  {
+   "id": "financebench_id_10420",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0303,
+   "seconds": 0.0985
+  },
+  {
+   "id": "financebench_id_06655",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0318,
+   "seconds": 0.0383
+  },
+  {
+   "id": "financebench_id_08135",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0267,
+   "seconds": 0.0345
+  },
+  {
+   "id": "financebench_id_08286",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0311,
+   "seconds": 0.0321
+  },
+  {
+   "id": "financebench_id_03882",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.0289,
+   "seconds": 0.0572
+  },
+  {
+   "id": "financebench_id_01935",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0323,
+   "seconds": 0.0058
+  },
+  {
+   "id": "financebench_id_00799",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.029,
+   "seconds": 0.0508
+  },
+  {
+   "id": "financebench_id_01079",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0303,
+   "seconds": 0.0482
+  },
+  {
+   "id": "financebench_id_01148",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0308,
+   "seconds": 0.0474
+  },
+  {
+   "id": "financebench_id_00684",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0289,
+   "seconds": 0.0497
+  },
+  {
+   "id": "financebench_id_01936",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0318,
+   "seconds": 0.0158
+  },
+  {
+   "id": "financebench_id_01928",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0318,
+   "seconds": 0.0077
+  },
+  {
+   "id": "financebench_id_01930",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0315,
+   "seconds": 0.009
+  },
+  {
+   "id": "financebench_id_03069",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.0278,
+   "seconds": 0.0821
+  },
+  {
+   "id": "financebench_id_00222",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0286,
+   "seconds": 0.0438
+  },
+  {
+   "id": "financebench_id_00995",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.032,
+   "seconds": 0.0417
+  },
+  {
+   "id": "financebench_id_01198",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.0325,
+   "seconds": 0.0419
+  },
+  {
+   "id": "financebench_id_00917",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0318,
+   "seconds": 0.0444
+  },
+  {
+   "id": "financebench_id_01279",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.032,
+   "seconds": 0.0435
+  },
+  {
+   "id": "financebench_id_00563",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0308,
+   "seconds": 0.0431
+  },
+  {
+   "id": "financebench_id_00757",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0323,
+   "seconds": 0.0409
+  },
+  {
+   "id": "financebench_id_00476",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.032,
+   "seconds": 0.0811
+  },
+  {
+   "id": "financebench_id_01028",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.032,
+   "seconds": 0.0806
+  },
+  {
+   "id": "financebench_id_00723",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0317,
+   "seconds": 0.0878
+  },
+  {
+   "id": "financebench_id_00720",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0274,
+   "seconds": 0.0854
+  },
+  {
+   "id": "financebench_id_01351",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0309,
+   "seconds": 0.0841
+  },
+  {
+   "id": "financebench_id_01964",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0328,
+   "seconds": 0.0832
+  },
+  {
+   "id": "financebench_id_01981",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0277,
+   "seconds": 0.0836
+  },
+  {
+   "id": "financebench_id_05718",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0307,
+   "seconds": 0.0666
+  },
+  {
+   "id": "financebench_id_04254",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0749
+  },
+  {
+   "id": "financebench_id_00070",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0277,
+   "seconds": 0.1091
+  },
+  {
+   "id": "financebench_id_02608",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0297,
+   "seconds": 0.0417
+  },
+  {
+   "id": "financebench_id_04417",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0308,
+   "seconds": 0.0409
+  },
+  {
+   "id": "financebench_id_00685",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0282,
+   "seconds": 0.0346
+  },
+  {
+   "id": "financebench_id_01077",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0325,
+   "seconds": 0.0325
+  },
+  {
+   "id": "financebench_id_01275",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0308,
+   "seconds": 0.0331
+  },
+  {
+   "id": "financebench_id_00288",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0135
+  },
+  {
+   "id": "financebench_id_00460",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0135
+  },
+  {
+   "id": "financebench_id_01902",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.0318,
+   "seconds": 0.0137
+  },
+  {
+   "id": "financebench_id_04660",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.032,
+   "seconds": 0.0439
+  },
+  {
+   "id": "financebench_id_03838",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 8,
+   "top_score": 0.0302,
+   "seconds": 0.0614
+  },
+  {
+   "id": "financebench_id_07661",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.03,
+   "seconds": 0.0596
+  },
+  {
+   "id": "financebench_id_10285",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0286,
+   "seconds": 0.043
+  },
+  {
+   "id": "financebench_id_00517",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.027,
+   "seconds": 0.0544
+  },
+  {
+   "id": "financebench_id_01091",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0306,
+   "seconds": 0.0536
+  },
+  {
+   "id": "financebench_id_00678",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0259,
+   "seconds": 0.0549
+  },
+  {
+   "id": "financebench_id_01290",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0284,
+   "seconds": 0.0523
+  },
+  {
+   "id": "financebench_id_00464",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0262,
+   "seconds": 0.0519
+  },
+  {
+   "id": "financebench_id_00494",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0524
+  },
+  {
+   "id": "financebench_id_00585",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0308,
+   "seconds": 0.0529
+  },
+  {
+   "id": "financebench_id_03473",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0276,
+   "seconds": 0.0793
+  },
+  {
+   "id": "financebench_id_09724",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 8,
+   "top_score": 0.0269,
+   "seconds": 0.0743
+  },
+  {
+   "id": "financebench_id_06272",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0315,
+   "seconds": 0.0758
+  },
+  {
+   "id": "financebench_id_10130",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.0279,
+   "seconds": 0.0492
+  },
+  {
+   "id": "financebench_id_02981",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0298,
+   "seconds": 0.0484
+  },
+  {
+   "id": "financebench_id_01346",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 0.032,
+   "seconds": 0.0515
+  },
+  {
+   "id": "financebench_id_00005",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0264,
+   "seconds": 0.0526
+  },
+  {
+   "id": "financebench_id_04209",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.032,
+   "seconds": 0.0264
+  },
+  {
+   "id": "financebench_id_05915",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0296,
+   "seconds": 0.1612
+  },
+  {
+   "id": "financebench_id_00790",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0308,
+   "seconds": 0.0927
+  },
+  {
+   "id": "financebench_id_01107",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 0.0301,
+   "seconds": 0.0923
+  },
+  {
+   "id": "financebench_id_01244",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0328,
+   "seconds": 0.0911
+  },
+  {
+   "id": "financebench_id_00839",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.032,
+   "seconds": 0.0133
+  },
+  {
+   "id": "financebench_id_00822",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0042
+  },
+  {
+   "id": "financebench_id_04103",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.0294,
+   "seconds": 0.049
+  },
+  {
+   "id": "financebench_id_03471",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0315,
+   "seconds": 0.0414
+  },
+  {
+   "id": "financebench_id_04854",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0315,
+   "seconds": 0.0404
+  },
+  {
+   "id": "financebench_id_10136",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0323,
+   "seconds": 0.0403
+  },
+  {
+   "id": "financebench_id_00956",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0245,
+   "seconds": 0.047
+  },
+  {
+   "id": "financebench_id_00669",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0283,
+   "seconds": 0.0486
+  },
+  {
+   "id": "financebench_id_00711",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0279,
+   "seconds": 0.0491
+  },
+  {
+   "id": "financebench_id_00651",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.032,
+   "seconds": 0.0073
+  },
+  {
+   "id": "financebench_id_01484",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 0.0318,
+   "seconds": 0.0071
+  },
+  {
+   "id": "financebench_id_01488",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0076
+  },
+  {
+   "id": "financebench_id_01490",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0328,
+   "seconds": 0.0085
+  },
+  {
+   "id": "financebench_id_01491",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0084
+  },
+  {
+   "id": "financebench_id_01487",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0323,
+   "seconds": 0.0076
+  },
+  {
+   "id": "financebench_id_00299",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0323,
+   "seconds": 0.0562
+  },
+  {
+   "id": "financebench_id_02119",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0303,
+   "seconds": 0.0566
+  },
+  {
+   "id": "financebench_id_00206",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0205,
+   "seconds": 0.143
+  },
+  {
+   "id": "financebench_id_00394",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0295,
+   "seconds": 0.0605
+  },
+  {
+   "id": "financebench_id_02049",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0328,
+   "seconds": 0.0691
+  },
+  {
+   "id": "financebench_id_10499",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.029,
+   "seconds": 0.0522
+  },
+  {
+   "id": "financebench_id_04412",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.026,
+   "seconds": 0.0507
+  },
+  {
+   "id": "financebench_id_03031",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0497
+  },
+  {
+   "id": "financebench_id_03718",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 0.0286,
+   "seconds": 0.0469
+  },
+  {
+   "id": "financebench_id_04171",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0303,
+   "seconds": 0.0628
+  },
+  {
+   "id": "financebench_id_03849",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0289,
+   "seconds": 0.0545
+  },
+  {
+   "id": "financebench_id_01254",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0325,
+   "seconds": 0.0628
+  },
+  {
+   "id": "financebench_id_00382",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0325,
+   "seconds": 0.0071
+  },
+  {
+   "id": "financebench_id_01911",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0315,
+   "seconds": 0.0074
+  },
+  {
+   "id": "financebench_id_01912",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.0302,
+   "seconds": 0.0064
+  },
+  {
+   "id": "financebench_id_00407",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0313,
+   "seconds": 0.0184
+  },
+  {
+   "id": "financebench_id_04700",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0267,
+   "seconds": 0.0359
+  },
+  {
+   "id": "financebench_id_00552",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0308,
+   "seconds": 0.0304
+  },
+  {
+   "id": "financebench_id_04458",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.03,
+   "seconds": 0.0261
+  },
+  {
+   "id": "financebench_id_03282",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0328,
+   "seconds": 0.0242
+  },
+  {
+   "id": "financebench_id_04302",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 0.0271,
+   "seconds": 0.0395
+  },
+  {
+   "id": "financebench_id_03531",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.032,
+   "seconds": 0.0351
+  },
+  {
+   "id": "financebench_id_04080",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 7,
+   "top_score": 0.0303,
+   "seconds": 0.0384
+  },
+  {
+   "id": "financebench_id_01163",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.032,
+   "seconds": 0.0334
+  },
+  {
+   "id": "financebench_id_00080",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0242,
+   "seconds": 0.0427
+  },
+  {
+   "id": "financebench_id_04980",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0286,
+   "seconds": 0.1058
+  },
+  {
+   "id": "financebench_id_01009",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.0232,
+   "seconds": 0.1062
+  },
+  {
+   "id": "financebench_id_00735",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0237,
+   "seconds": 0.1249
+  },
+  {
+   "id": "financebench_id_01328",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 5,
+   "top_score": 0.0315,
+   "seconds": 0.1088
+  },
+  {
+   "id": "financebench_id_03620",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0302,
+   "seconds": 0.1131
+  },
+  {
+   "id": "financebench_id_04481",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.032,
+   "seconds": 0.1116
+  },
+  {
+   "id": "financebench_id_01482",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0328,
+   "seconds": 0.0054
+  },
+  {
+   "id": "financebench_id_00705",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0328,
+   "seconds": 0.0484
+  },
+  {
+   "id": "financebench_id_00882",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0485
+  },
+  {
+   "id": "financebench_id_01474",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0318,
+   "seconds": 0.0066
+  },
+  {
+   "id": "financebench_id_01476",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0323,
+   "seconds": 0.0067
+  },
+  {
+   "id": "financebench_id_00302",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0271,
+   "seconds": 0.0615
+  },
+  {
+   "id": "financebench_id_00702",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0278,
+   "seconds": 0.062
+  },
+  {
+   "id": "financebench_id_02416",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.024,
+   "seconds": 0.0602
+  },
+  {
+   "id": "financebench_id_00283",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.0285,
+   "seconds": 0.0263
+  },
+  {
+   "id": "financebench_id_00724",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 2,
+   "top_score": 0.0293,
+   "seconds": 0.0264
+  },
+  {
+   "id": "financebench_id_02419",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.0318,
+   "seconds": 0.0258
+  },
+  {
+   "id": "financebench_id_00746",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.032,
+   "seconds": 0.0301
+  },
+  {
+   "id": "financebench_id_00521",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 3,
+   "top_score": 0.031,
+   "seconds": 0.0295
+  },
+  {
+   "id": "financebench_id_00601",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0325,
+   "seconds": 0.0046
+  },
+  {
+   "id": "financebench_id_00603",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0312,
+   "seconds": 0.0044
+  },
+  {
+   "id": "financebench_id_00605",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 4,
+   "top_score": 0.0325,
+   "seconds": 0.005
+  },
+  {
+   "id": "financebench_id_00606",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 6,
+   "top_score": 0.0315,
+   "seconds": 0.0044
+  },
+  {
+   "id": "financebench_id_00859",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0315,
+   "seconds": 0.043
+  },
+  {
+   "id": "financebench_id_02024",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.032,
+   "seconds": 0.0407
+  },
+  {
+   "id": "financebench_id_00216",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0298,
+   "seconds": 0.043
+  },
+  {
+   "id": "financebench_id_00215",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.029,
+   "seconds": 0.0407
+  },
+  {
+   "id": "financebench_id_00566",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 9,
+   "top_score": 0.029,
+   "seconds": 0.06
+  },
+  {
+   "id": "financebench_id_06247",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.0291,
+   "seconds": 0.0871
+  },
+  {
+   "id": "financebench_id_04784",
+   "split": "test",
+   "scope": "document",
+   "first_hit": null,
+   "top_score": 0.032,
+   "seconds": 0.0404
+  },
+  {
+   "id": "financebench_id_06741",
+   "split": "test",
+   "scope": "document",
+   "first_hit": 1,
+   "top_score": 0.0305,
+   "seconds": 0.056
+  }
+ ]
+}

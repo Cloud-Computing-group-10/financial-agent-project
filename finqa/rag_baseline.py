@@ -19,7 +19,7 @@ If the passages do not contain enough evidence, or the question is ambiguous, sa
 
 
 def rag_answer(question: str, accession: str, method: str = "hybrid", k: int = TOP_K) -> dict:
-    """accession selects the correct filing (from the answer key), like the full-document baseline."""
+    """accession selects the correct filing (from the answer key), so the baseline is generous."""
     t0 = time.time()
     usage = llm.Usage()
     with connect() as conn:

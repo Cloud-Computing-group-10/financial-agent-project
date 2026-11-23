@@ -30,7 +30,45 @@ from finqa.config import DATA_DIR, SEC_USER_AGENT  # noqa: E402
 from finqa.db import connect  # noqa: E402
 from finqa.text import html_to_lines, read_filing  # noqa: E402
 from finqa.workflow import SQL_LATEST_DOC, lookup, previous_figure, shift_period  # noqa: E402
-from verify_answer_key import fmt_cell, rows_with  # noqa: E402
+
+# A table row matches when its label fits the metric and it holds the value as printed.
+LABELS = {
+    "net_sales": r"sales|revenue",
+    "cost_of_sales": r"cost of (goods|products|sales|revenue)",
+    "gross_profit": r"gross profit",
+    "sga": r"selling|general and administrative",
+    "rd_expense": r"research",
+    "operating_income": r"operating (income|profit|earnings)|income from operations",
+    "pretax_income": r"before (provision for )?(income )?tax",
+    "net_income": r"net (income|earnings|loss)|profit( \(loss\))? attributable|profit$",
+    "eps_diluted": r"diluted|assuming dilution",
+    "operating_cash_flow": r"operating activities",
+}
+
+
+def fmt_cell(v: float, unit: str) -> str:
+    """How the value is printed in the filing's tables (millions, or dollars for EPS)."""
+    if unit == "USD/share":
+        s = f"{abs(v):.2f}"
+    else:
+        s = f"{abs(v) / 1e6:,.0f}"
+    return f"({s})" if v < 0 else s
+
+
+def rows_with(lines: list[str], metric: str, *cells: str) -> list[str]:
+    out = []
+    for line in lines:
+        if " | " not in line:
+            continue
+        # "( 6,841 )" -> "(6,841)"; drop footnote markers like "Profit 1" / "diluted 2"
+        parts = [re.sub(r"\(\s*([\d.,]+)\s*\)", r"(\1)", p.strip().lstrip("$").strip()) for p in line.split(" | ")]
+        label = re.sub(r"\s+\d$", "", parts[0])
+        if not re.search(LABELS[metric], label, re.I):
+            continue
+        if all(c in parts[1:] for c in cells):
+            out.append(line)
+    return out
+
 
 HERE = Path(__file__).resolve().parent
 QUESTIONS = HERE / "questions_v2.jsonl"

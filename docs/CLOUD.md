@@ -55,7 +55,7 @@ The repository is private, so copy your checkout from your laptop (this also wor
 uncommitted changes). From the folder above the project:
 
 ```bash
-rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude data/financebench/pdfs --exclude .env -e "ssh -i ~/.ssh/finqa.pem" financial-agent-project ubuntu@<public-ip>:~/
+rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude data/financebench/pdfs --exclude .env --exclude eval/results/archive -e "ssh -i ~/.ssh/finqa.pem" financial-agent-project ubuntu@<public-ip>:~/
 ```
 
 On the instance:
@@ -115,14 +115,18 @@ server) and written into the cloud database through an SSH tunnel. Open the tunn
 ssh -i ~/.ssh/finqa.pem -f -N -L 5433:localhost:5432 ubuntu@<public-ip>
 ```
 
-Then, on the laptop, with the PDFs in `data/financebench/pdfs`:
+Then, on the laptop, download the PDFs and load them:
+
+```bash
+.venv/bin/python -m finqa.pdf_docs --download
+```
 
 ```bash
 DATABASE_URL=postgresql://finqa:finqa@localhost:5433/finqa .venv/bin/python -m finqa.pdf_docs
 ```
 
 The same tunnel lets you query the cloud database from the laptop, e.g. to run the experiments
-(README 8.3) with `DATABASE_URL` set this way. Postgres is only reachable through SSH; port 5432 is
+(README 8.3, REPRODUCE.md) with `DATABASE_URL` set this way. Postgres is only reachable through SSH; port 5432 is
 not open to the internet.
 
 
@@ -156,20 +160,16 @@ type), start it again and run `docker compose up -d`. The public IP changes afte
 
 ## Scaling experiment (plan 16.8)
 
-Same machine, different core counts, on the same sample of filings. A full batch takes hours on
-one core, so copy 200 filings of a finished batch into a sample batch first:
+The same work on 1, 2, 4, 8, 16 and 32 cores of this machine: the text job on a fixed sample of 100
+downloaded 10-Qs, and the facts job on all companyfacts files. Run it after the pipeline, when
+nothing else uses the cores, and before changing the instance to a small type:
 
 ```bash
-docker compose run --rm -T api sh -c 'mkdir -p data/bulk/scale/raw/batch=0000 && ls data/bulk/text/raw/batch=0005/*.htm.gz | head -200 | xargs -I{} cp {} data/bulk/scale/raw/batch=0000/ && touch data/bulk/scale/raw/batch=0000/_DONE'
+nohup bash cloud/scaling_experiment.sh > data/bulk/scaling.log 2>&1 &
 ```
 
-```bash
-docker compose run --rm -T api python spark/text_job.py --input data/bulk/scale/raw --output /tmp/scale --manifest data/bulk/text/manifest.csv --cores 4
-```
-
-Repeat with `--cores 1`, `2`, `4`, `8`, `16`, `32` and note the passages per second it prints
-(each run starts from scratch, since `/tmp` is inside the container). Run it after the pipeline,
-when nothing else uses the cores, and before changing the instance to a small type.
+It takes about 25 minutes and writes `data/bulk/scaling.csv` (job, cores, seconds, passages/s).
+`CORES_LIST="1 4 16"` runs fewer points.
 
 
 ## Costs and teardown

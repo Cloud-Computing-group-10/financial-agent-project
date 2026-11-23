@@ -1,4 +1,4 @@
-"""LLM grader for free-text answers ("why" questions, FinanceBench, declines of the baselines).
+"""LLM grader for free-text answers ("why" questions, FinanceBench, declines of the RAG baseline).
 
 One fixed grader model for every system and model under test, so grades are comparable. Plan 16.5:
 the grader drafts the grades; a person checks a sample and the report states the agreement.

@@ -1,0 +1,447 @@
+set,id,system,model,question,reference,answer,grader,strong_grader,human
+financebench,financebench_id_00302,A,claude:claude-haiku-5-5,Did Pfizer grow its PPNE between FY20 and FY21?,"Yes, change in PPNE was positive year over year
+Justification: 14882 - 13745 > 0","Yes. Pfizer's property, plant and equipment, net, rose from USD 13,745 million at December 31, 2020 to USD 14,882 million at December 31, 2021, a growth of 8.27%.
+- The consolidated balance sheet reports property, plant and equipment of $14,882 million as of December 31, 2021 and $13,745 million as of December 31, 2020. [C303413]
+Computed: (ppne_2021 - ppne_2020) / ppne_2020 * 100 with ppne_2021=14882 [C303413], ppne_2020=13745 [C303413]",correct,correct,
+financebench,financebench_id_01226,C,claude:claude-haiku-5-5,"What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.","Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: 
+-Decrease in gross Margin
+-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring
+charges
+Justification: None","Operating income margin fell from 20.8% in 2021 to 19.1% in 2022, a decline of 1.7 percentage points [C264979]. The line items in the same table explain the movement:
+
+- **Cost of sales** rose to 56.2% of net sales from 53.2%, up 3.0 points. The filing says this increase was ""primarily due to 2022 special item costs,"" but the passage cuts off before naming them [C264979].
+- **SG&A** rose to 26.5% from 20.4%, up 6.1 points. The passages do not explain this increase [C264979].
+- **R&D** fell to 5.4% from 5.6%, down 0.2 points [C264979].
+- **Gain on business divestitures** contributed 8.0% of net sales in 2022, versus none in 2021. This partly offsets the cost increases [C264979].
+- **Goodwill impairment expense** was 0.8% of net sales in 2022, versus none in 2021 [C264979].
+
+Taken together, the higher cost of sales and SG&A ratios were partly offset by the divestiture gain. The goodwill impairment reduced the margin further. The filing also says it reports operating income adjusted for special items, which it describes as useful to investors [C264961]. The passages do not give the adjusted 2022 margin, so the underlying trend cannot be separated from these one-time items using only this material.
+
+Is operating margin useful for 3M? It is a meaningful metric for 3M, since the company reports it directly and breaks it down by cost line. However, the GAAP figure is distorted in 2022 by one-time items such as the divestiture gain, the goodwill impairment, and special-item costs. Reading the 19.1% figure alone would be misleading without the adjusted measure, which the passages reference but do not provide for 2022.",incorrect,incorrect,
+v2,W12,A0,mlx:mlx-community/Qwen2.5-7B-Instruct-4bit,Why did Lockheed Martin's net sales increase in Q2 2024?,"Higher product sales at RMS, MFC and Aeronautics.","Lockheed Martin Corporation's net sales / revenue for Q2 2024 was $18.122 billion [F1]. That is up 8.6% ($1.429 billion) from $16.693 billion in Q2 2023 [F2] (year-over-year; computed in SQL).
+
+The retrieved passages do not explain this; abstaining on the 'why' part.",incorrect,declined,
+financebench,financebench_id_01275,A,claude:claude-haiku-5-5,"Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for Best Buy in FY2023?","Best Buy generated the most cash flow from operating activities in FY 2023 ($1.8 bn)
+Justification: None","In FY2023, operating activities brought in the most cash at 1,824.00 USD millions, ahead of investing activities at (962) and financing activities at (1,806) USD millions; since investing and financing both used cash, operating activities is the largest positive contributor, and the answer is operations.
+- Cash provided by operating activities in fiscal 2023 was 1,824 USD millions. [C277024][C277073]
+- Net cash used in investing activities in fiscal 2023 was (962) USD millions. [C277024][C277074]
+- Net cash used in financing activities in fiscal 2023 was (1,806) USD millions. [C277024][C277074]
+Computed: ops_2023 with ops_2023=1824 [C277024]",correct,correct,
+financebench,financebench_id_04417,C,claude:claude-haiku-5-5,What is the year end FY2019 total amount of inventories for Best Buy? Answer in USD millions. Base your judgments on the information provided primarily in the balance sheet.,"$5409.00
+Justification: The metric inventories was directly extracted from the company 10K. The line item name, as seen in the 10K, was: Merchandise inventories.","The provided passages do not contain Best Buy's FY2019 balance sheet or any inventory figure, so I can't determine the year-end FY2019 total inventories from them.
+
+The passages cover restructuring accruals for Best Buy Mobile [C276814], International store counts [C276636], [C276573], comparable-sales and consolidated results [C276614], a stock performance graph [C276591], revenue recognition policies [C276754], and Domestic store counts [C276622]. None of them reports inventory.",declined,declined,
+financebench,financebench_id_00563,C,claude:claude-haiku-5-5,"From FY21 to FY22, excluding Embedded, in which AMD reporting segment did sales proportionally increase the most?","Data Center
+Justification: Data center: 
+FY22: 6,043
+FY21: 3,694 
+6,043/3,694-1 = 63,59%
+
+Client: 
+FY22: 6,201
+FY21: 6,887 
+6,201/6,887-1 = -9,96%
+
+
+Gaming: 
+FY22: 6,805
+FY21: 5,607 
+6,805/5,607-1 = 21,37%","**Data Center** had the largest proportional increase in sales, excluding Embedded.
+
+- Data Center segment revenue increased 64% from 2021 to 2022, ""primarily due to higher sales of our EPYC™ server processors"" [C272567].
+- Gaming segment revenue increased 21%, from $5.6 billion in 2021 to $6.8 billion in 2022 [C272593, C272567].
+- Client segment revenue decreased 10%, ""primarily due to lower processor shipments driven by a weak PC market"" [C272568]. It did not increase.
+
+The passages give percentage changes for Data Center and Client but not their 2021 dollar amounts, so the comparison rests on the stated percentages.",correct,correct,
+financebench,financebench_id_02024,A,claude:claude-haiku-5-5,"As of FY 2021, how much did Verizon expect to pay for its retirees in 2024?","The estimated pension benefits were $1097 million, and the estimated health care and life insurance benefits were $862 million.
+Justification: None","Verizon expected to pay retirees benefits of 1,959.00 USD millions in 2024, combining $1,097 million for pension benefits and $862 million for health care and life benefits.
+- The benefit payments to retirees are expected to be paid as follows: in 2024, pension benefits are $1,097 million and health care and life benefits are $862 million. [C304886]
+Computed: pension_2024 + health_life_2024 with pension_2024=1097 [C304886], health_life_2024=862 [C304886]",correct,correct,
+financebench,financebench_id_01107,A,claude:claude-haiku-5-5,"Has CVS Health reported any materially important ongoing legal battles from 2022, 2021 and 2020?","Yes, CVS Health has been involved in multiple ongoing legal battles. Some notable legal dispute areas for CVS are: (1) usual and customary pricing litigation: where it's claimed that CVSâs retail pharmacies overcharged for prescription drugs; (2) PBM litigation and investigations: where it's claimed that that rebate agreements between the drug manufacturers and PBMs caused inflated prices for certain drug products; and (3) controlled substances litigation: legal matters around opioids for which CVS has agreed to pay up to $4.3 billion to claimants in remediation and $625 million to attorneys and fees
+Justification: None","Yes. CVS Health's 10-K describes ongoing legal and regulatory proceedings across 2020 through 2022, including opioid-related litigation and a DEA administrative subpoena served in January 2020 with a DOJ CID served in January 2022 on similar subjects, which the Company is responding to. The Company also reports numerous other legal proceedings, including class actions and derivative claims, government investigations, and qui tam matters, and states that none of its accruals for outstanding legal matters are material individually or in aggregate.
+- The Company is currently involved in numerous legal proceedings, including litigation, arbitration, government investigations, audits, reviews and claims, involving CMS, DOJ, state Attorneys General, DEA, and FTC. [C285397]
+- The Company has concluded that settlement of opioid claims by governmental entities and tribes is probable, and it cannot reasonably estimate the range of ultimate possible loss for all opioid-related litigation matters; the outcome could have a material effect on its business. [C285410]
+- In January 2020, the DOJ served the Company with a DEA administrative subpoena concerning prescription opioids and controlled substances at CVS pharmacy locations, and in January 2022 the DOJ served a CID regarding similar subjects, which the Company is responding to. [C285410]
+- Other legal proceedings are or are purported to be class actions or derivative claims, and the Company is defending itself against these claims. [C285425][C285427]
+- None of the Company's accruals for outstanding legal matters are material individually or in the aggregate to its financial condition, and the Company does not believe pending matters will have a material adverse effect on its financial position. [C285399]",correct,incorrect,
+financebench,financebench_id_00995,C,claude:claude-haiku-5-5,What are the major products and services that AMD sells as of FY22?,"AMD sells server microprocessors (CPUs) and graphics processing units (GPUs), data processing units (DPUs), Field Programmable Gate Arrays (FPGAs), and Adaptive System-on-Chip (SoC) products for data centers; CPUs, accelerated processing units (APUs) that integrate CPUs and GPUs, and chipsets for desktop and notebook personal computers; discrete GPUs, and semi-custom SoC products and development services; and embedded CPUs, GPUs, APUs, FPGAs, and Adaptive SoC products.
+Justification: None","AMD's major products and services as of FY22 are:
+
+- **Processors:** x86 microprocessors (CPUs), accelerated processing units (APUs), and chipsets [C272624]. Client processors include AMD Ryzen, Ryzen PRO, Ryzen Threadripper, Threadripper PRO, Athlon, Athlon PRO, and AMD PRO A-Series, which serve desktop and notebook PCs [C272418]. Server microprocessors are sold under AMD EPYC [C272419].
+- **Graphics:** GPUs, sold as standalone devices or within APUs [C272624]. Consumer discrete graphics use the AMD Radeon brand, professional graphics use Radeon PRO, and data center graphics use Radeon Instinct, Radeon PRO V-series, and AMD Instinct accelerators [C272418]. The Radeon RX 6000 and RX 7900 series are discrete graphics products for gaming desktops and notebooks [C272410].
+- **Data center products:** server CPUs and GPUs, data processing units (DPUs), FPGAs, and Adaptive SoCs [C272397][C272624].
+- **Embedded products:** embedded CPUs, GPUs, APUs, FPGAs, and Adaptive SoCs [C272397]. These include AMD Embedded EPYC CPUs and AMD Embedded Ryzen V-Series and R-Series APUs [C272412].
+- **FPGAs and Adaptive SoCs (from Xilinx):** After the February 2022 acquisition of Xilinx, AMD offers Field Programmable Gate Arrays (FPGAs), Adaptive SoCs, and Adaptive Compute Acceleration Platform (ACAP) products [C272566]. Brands include Virtex, Kintex, Artix, Spartan, Zynq, and Versal, and compute and network acceleration boards are sold under Alveo [C272419].
+- **Semi-custom products and development services:** semi-custom System-on-Chip (SoC) products and microprocessor and SoC development services and technology [C272624][C272397].
+- **Other:** From time to time, AMD also sells or licenses portions of its intellectual property portfolio [C272624].
+
+The passages do not give a full product catalog or revenue breakdown by product, so this list reflects the product categories described in the filing excerpts.",correct,correct,
+financebench,financebench_id_04302,A,claude:claude-haiku-5-5,"We need to calculate a reasonable approximation (or exact number if possible) of a financial metric. Basing your judgment by information plainly provided in the statement of income, what is Nike's three year average of cost of goods sold as a % of revenue from FY2016 to FY2018? Answer in units of percents and round to one decimal place.","55.1%
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Cost of goods sold. This metric was located in the 10K as a single line item named: Cost of sales.
+
+Metric 2: Total revenue. This metric was located in the 10K as a single line item named: Revenues.","Nike's three-year average cost of sales as a percentage of revenue for FY2016 to FY2018 is 55.11%.
+- Nike's Consolidated Statements of Income report Revenues and Cost of sales for fiscal 2018, 2017, and 2016 in USD millions. [C297885]
+Computed: ((cogs_2018 / rev_2018 + cogs_2017 / rev_2017 + cogs_2016 / rev_2016) / 3) * 100 with cogs_2018=20441 [C297885], rev_2018=36397 [C297885], cogs_2017=19038 [C297885], rev_2017=34350 [C297885], cogs_2016=17405 [C297885], rev_2016=32376 [C297885]",correct,correct,
+financebench,financebench_id_01930,A,claude:claude-haiku-5-5,"How much was the Real change in Sales for AMCOR in FY 2023 vs FY 2022, if we exclude the impact of FX movement, passthrough costs and one-off items?","The Real Growth was flat in FY 2023 vs FY 2022.
+Justification: None","Excluding FX, raw material pass-through and items affecting comparability, Amcor's total net sales were in line with the prior year for FY2023 vs FY2022, a comparable constant currency change of {result} (reported growth was 1%).
+- Amcor's twelve-month net sales were $14,694 million in FY2023 versus $14,544 million in FY2022, with reported growth of 1% and comparable constant currency growth shown as a dash (nil). [C270970]
+- Net sales on a comparable constant currency basis were in line with the prior year for the Amcor Group for the twelve months ended June 30, 2023. [C270974]
+- Total Amcor's twelve-month reported growth was 1%, FX was a 1% impact, raw material pass-through was 5%, items affecting comparability was (1)%, and comparable constant currency growth was 0%. [C271002]",correct,correct,
+financebench,financebench_id_04254,C,claude:claude-haiku-5-5,"Basing your judgments off of the cash flow statement and the income statement, what is American Water Works's FY2021 unadjusted operating income + depreciation and amortization from the cash flow statement (unadjusted EBITDA) in USD millions?","$1832.00
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Depreciation and amortization. This metric was located in the 10K as a single line item named: Depreciation and amortization.
+
+Metric 2: Unadjusted operating income. This metric was located in the 10K as a single line item named: Operating income.","**Unadjusted EBITDA for FY2021 is $1,832 million.**
+
+- **Operating income:** $1,196 million for 2021 [C274706].
+- **Depreciation and amortization:** $636 million for 2021, from the cash flow statement's operating activities section [C274709]. The income statement shows the same $636 million [C274706].
+
+$1,196 + $636 = $1,832 million.",correct,correct,
+v2,W08,C,claude:claude-haiku-5-5,Why did Tesla's automotive sales revenue fall in Q2 2024?,Lower average selling prices from overall price reductions and attractive financing options.,"Tesla's automotive sales revenue fell in Q2 2024 mainly because of lower average selling prices and fewer Model 3 and Model Y deliveries.
+
+- **Lower average selling price:** Automotive sales revenue decreased $1.89 billion, or 9%, in the three months ended June 30, 2024, ""primarily due to lower average selling price on our vehicles driven by overall price reductions and attractive financing options provided year over year"" [C2197392].
+- **Fewer Model 3 and Model Y deliveries:** The same passage states there was ""a decrease of approximately 13,000 combined Model 3 and Model Y cash deliveries partially due to the early phase of the production ramp of the updated Model 3 at our Fremont factory"" [C2197392].
+- **Partial offset from other models:** The decline was ""partially offset by an increase of approximately 4,000 deliveries of other models, including Model S, Model X and Cybertruck, primarily due to our production ramp of Cybertruck"" [C2197392].
+
+For context, the revenue table shows automotive sales of $18,530 million in Q2 2024 versus $20,419 million in Q2 2023 [C2195419].
+
+The passages do not give a precise quantified split between the price effect and the volume effect.",correct,correct,
+financebench,financebench_id_00494,A,claude:claude-haiku-5-5,What production rate changes is Boeing forecasting for FY2023?,"Boeing forecasts an increase in the production rates for the 737, 777X and 787 aircrafts in 2023.
+Justification: Boeing plans to gradually increase production rates for the 737 and 787 and to resume production of 777X.","For FY2023, Boeing plans to gradually increase the 787 program's production rate to 5 per month, expects the 777X production (currently paused) to resume in 2023, and plans to gradually increase the 737 production rate from 31 per month based on market demand and supply chain capacity.
+- Boeing expects to gradually increase 787 production to 5 per month in 2023. [C278701][C278791]
+- Production of the 777X is currently paused and is expected to resume in 2023. [C278701]
+- Boeing plans to gradually increase 737 production rates from 31 per month based on market demand and supply chain capacity. [C278701][C278783]",correct,correct,
+v2,W07,A,mlx:mlx-community/Qwen2.5-7B-Instruct-4bit,Why did PepsiCo's operating profit grow in Q2 2024?,Effective net pricing and productivity savings (plus the effect of prior-year impairment charges).,"PepsiCo's operating profit grew by 10.6% from $3.659 billion in Q2 2023 to $4.048 billion in Q2 2024 [F1], [F2]. The growth was primarily driven by effective net pricing and productivity savings [C546357].",correct,correct,
+financebench,financebench_id_02608,A,claude:claude-haiku-5-5,"In agreement with the information outlined in the income statement, what is the FY2015 - FY2017 3 year average net profit margin (as a %) for Best Buy? Answer in units of percents and round to one decimal place.","2.8%
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Total revenue. This metric was located in the 10K as a single line item named: Revenue.
+
+Metric 2: Net income. This metric was located in the 10K as a single line item named: Net earnings attributable to Best Buy Co., Inc. shareholders.","Best Buy's FY2015-FY2017 three-year average net profit margin, using net earnings attributable to Best Buy Co., Inc. shareholders divided by revenue, is 2.81%.
+- Revenue was $39,403 million in fiscal 2017, $39,528 million in fiscal 2016, and $40,339 million in fiscal 2015. [C276207]
+- Net earnings attributable to Best Buy Co., Inc. shareholders were $1,228 million in fiscal 2017, $897 million in fiscal 2016, and $1,233 million in fiscal 2015. [C276207]
+Computed: ((ni_2017 / rev_2017 + ni_2016 / rev_2016 + ni_2015 / rev_2015) / 3) * 100 with ni_2017=1228 [C276207], rev_2017=39403 [C276207], ni_2016=897 [C276207], rev_2016=39528 [C276207], ni_2015=1233 [C276207], rev_2015=40339 [C276207]",correct,correct,
+financebench,financebench_id_00517,C,claude:claude-haiku-5-5,Are there any product categories / service categories that represent more than 20% of Boeing's revenue for FY2022?,"Yes. Boeing has product and service categories that represent more than 20% of Boeing's revenue for FY2022. These categories are Commercial Airplanes which comprises 39% of total revenue, Defence which comprises 35% of total revenue and Services which comprises 26% of total revenue.
+Justification: Commercial Airplanes%=Revenues: Commercial Airplanes/Total revenues*100=25,867/66,608*100=39%. Defence%=Defense, Space & Security/Total revenues*100=23,162/66,608*100=35%. Services%=Global Services/Total revenues*100=17,611/66,608*100=26%.","The passages do not contain enough evidence to answer this question.
+
+To test the 20% threshold, you would need FY2022 revenue by product or service category and total FY2022 revenue. The passages include neither:
+
+- [C278800] says BDS revenues decreased by $3,378 million in 2022 compared with 2021, but gives no BDS revenue total or company total.
+- [C279026] has a heading ""BGS revenues consisted of the following:"" but no breakdown figures.
+- [C278811] gives BGS total backlog of $19,338 million at December 31, 2022, but backlog is not revenue.
+- [C278768] gives research and development expense by segment, which is not revenue.
+
+No passage states the revenue of any segment or category as a share of total revenue, so I can't say whether any category exceeds 20%.",incorrect,declined,
+v2,W12,C,claude:claude-haiku-5-5,Why did Lockheed Martin's net sales increase in Q2 2024?,"Higher product sales at RMS, MFC and Aeronautics.","The passages don't include a consolidated Q2 2024 net sales total or its year-over-year change, so this answer is built from the segment-level explanations.
+
+**Main drivers in the quarter:**
+
+- **Rotary and Mission Systems (RMS):** Net sales rose $651 million, or 17%. This was mainly from $420 million higher sales on integrated warfare systems and sensors (IWSS) programs, due to higher volume on radar programs and the Canadian Surface Combatant program, plus new program ramp-up in the laser systems portfolio. Sikorsky helicopter programs added $160 million, from higher production volume on Black Hawk and CH-53K [C1417343].
+- **Aeronautics:** Net sales rose $402 million, or 6%. F-35 sales increased $335 million on higher volume across sustainment, development and production contracts, and F-16 sales increased $105 million from the production ramp-up [C1417052].
+- **Space:** Net sales rose $29 million, or 1%. Higher strategic and missile defense sales of $110 million (hypersonics and Fleet Ballistic Missile programs) were largely offset by lower national security space sales (−$50 million) and commercial civil space sales (−$45 million) [C1417345].
+
+**Other contributing factor:**
+
+- Service sales rose $78 million, or 3%, mainly from about $75 million higher service sales at Aeronautics on F-35 and C-130 sustainment contracts [C1416496].
+
+**Cost side:** Product costs rose $1.3 billion, or 10%, mainly from higher volume and production ramp-up at RMS (about $685 million), Aeronautics (about $305 million) and MFC (about $275 million) [C1416498].
+
+**Gaps:** The passages give no quarterly Missiles and Fire Control (MFC) net sales change; the MFC sales increase cited is for the six months ended June 30, 2024 [C1417342]. They also do not state the consolidated quarterly net sales total or its exact percentage change.",correct,incorrect,
+financebench,financebench_id_00822,A,claude:claude-haiku-5-5,Were there any board member nominees who had substantially more votes against joining than the other nominees?,"Yes, his name is Richard A. Johnson
+Justification: Richard A. Johnson had roughly 16.1 million votes against him joining whereas the maximum votes against joining among all other candidates was roughly 6.1 million.","Yes. Richard A. Johnson had substantially more votes against his election (16,105,005) than the other nominees, whose votes against ranged from 294,935 to 6,074,467.
+- Richard A. Johnson received 16,105,005 votes against his election to the Board. [C285541]
+- The other nominees received between 294,935 and 6,074,467 votes against, so Johnson's votes against were substantially higher than the rest. [C285541]",correct,correct,
+v2,W09,A,mlx:mlx-community/Qwen2.5-7B-Instruct-4bit,Why did Abbott's net sales increase in Q2 2024?,"Higher sales in Medical Devices, Nutritional Products and Established Pharmaceutical Products, partly offset by lower COVID-19 testing sales.","Abbott's net sales increased by 4.0% to $10.377 billion in Q2 2024 compared to $9.978 billion in Q2 2023 [F1][F2]. The increase was driven by higher sales in the Medical Devices, Nutritional Products, and Established Pharmaceutical Products segments, partially offset by a decrease in demand for Abbott’s rapid diagnostic tests to detect COVID-19 [C28016][C28015].",correct,correct,
+v2,W05,A,mlx:mlx-community/Qwen2.5-3B-Instruct-4bit,Why did Honeywell's net sales increase in Q2 2023?,Increased pricing.,"Honeywell International Inc's net sales / revenue for Q2 2023 was $9.146 billion [F1]. That is up 3.2% ($282 million) from $8.864 billion in Q1 2023 [F2] (quarter-over-quarter; computed in SQL).
+
+Reasons given in the filing:
+- Sales increased due to higher organic sales in Commercial Aviation Aftermarket and Original Equipment. [C882234]",incorrect,incorrect,
+financebench,financebench_id_00299,A,claude:claude-haiku-5-5,Which of JPM's business segments had the lowest net revenue in 2021 Q1?,"Corporate. Its net revenue was -$473 million.
+Justification: 14,605 > 12,517 > 4,077 > 2,393 > -473","The Corporate segment had the lowest net revenue in Q1 2021, at -$473 million (USD millions), below Consumer & Community Banking ($12,517M), Corporate & Investment Bank ($14,605M), Commercial Banking ($2,393M) and Asset & Wealth Management ($4,077M).
+- In Q1 2021, the Corporate segment reported total net revenue of $(473) million (USD millions). [C288391]
+- In Q1 2021, Consumer & Community Banking reported total net revenue of $12,517 million, Corporate & Investment Bank $14,605 million, and Commercial Banking $2,393 million. [C287844]
+- In Q1 2021, Asset & Wealth Management reported total net revenue of $4,077 million. [C287880]
+- The Firm's four major reportable business segments are Consumer & Community Banking, Corporate & Investment Bank, Commercial Banking and Asset & Wealth Management, and there is also a Corporate segment. [C288388][C287841]",correct,correct,
+financebench,financebench_id_01930,C,claude:claude-haiku-5-5,"How much was the Real change in Sales for AMCOR in FY 2023 vs FY 2022, if we exclude the impact of FX movement, passthrough costs and one-off items?","The Real Growth was flat in FY 2023 vs FY 2022.
+Justification: None","Amcor's real change in net sales for FY2023 versus FY2022, excluding FX, raw material pass-through and items affecting comparability, was **about 0% (flat)**.
+
+- The FY2023 total-company table shows comparable constant currency growth of ""—"" (nil) for the twelve months. Reported growth was 1%, FX was an unfavorable 3%, raw material pass-through was 5%, and items affecting comparability were an unfavorable 1% [C271002].
+- The narrative confirms this: ""Net sales on a comparable constant currency basis were in line with the prior year, largely reflecting price/mix benefits"" [C270974].
+
+Net sales were $14,694 million in FY2023 versus $14,544 million in FY2022 [C270970].
+
+The passages do not give a separate ""one-off items"" figure beyond the items affecting comparability already noted, so this is the closest available measure. The figure is rounded to the nearest whole percent.",correct,correct,
+v2,W10,A,mlx:mlx-community/Qwen2.5-7B-Instruct-4bit,Why did Abbott's diagnostics sales decline in Q2 2024?,Lower demand for COVID-19 tests.,"Abbott's diagnostics sales in Q2 2024 declined compared to Q2 2023, primarily due to lower demand for COVID-19 tests, as stated in the company's filing. [C28015][C29979][C28018] The overall revenue, however, showed an increase of 4.0% year over year, driven by other segments. [F1][F2]",correct,correct,
+financebench,financebench_id_04458,A,claude:claude-haiku-5-5,We want to calculate a financial metric. Please help us compute it by basing your answers off of the statement of income and the statement of cash flows. Here's the question: what is the FY2015 unadjusted EBITDA % margin for Netflix? Calculate unadjusted EBITDA using unadjusted operating income and D&A (from cash flow statement).,"5.4%
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Depreciation and amortization. This metric was located in the 10K as a single line item named: Depreciation and amortization of property, equipment and intangibles.
+
+Metric 2: Unadjusted operating income. This metric was located in the 10K as a single line item named: Operating income.
+
+Metric 3: Total revenue. This metric was located in the 10K as a single line item named: Revenues.","Netflix's FY2015 unadjusted EBITDA margin was 5.43% (unadjusted EBITDA of about USD 368.1 million, from operating income of USD 305.8 million plus D&A of USD 62.3 million, divided by revenues of USD 6,779.5 million).
+- Netflix FY2015 consolidated revenues were $6,779,511 thousand. [C297373]
+- Netflix FY2015 consolidated operating income was $305,826 thousand. [C297373]
+- Netflix FY2015 depreciation and amortization of property, equipment and intangibles was $62,283 thousand. [C297299]
+Computed: (operating_income_2015 + da_2015) / revenue_2015 * 100 with operating_income_2015=305826 [C297373], da_2015=62283 [C297299], revenue_2015=6.77951e+06 [C297373]",correct,correct,
+financebench,financebench_id_04735,C,claude:claude-haiku-5-5,You are an investment banker and your only resource(s) to answer the following question is (are): the statement of financial position and the cash flow statement. Here's the question: what is the FY2015 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places.,"0.66
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Cash from operations. This metric was located in the 10K as a single line item named: Net cash provided by operating activities.
+
+Metric 2: Total current liabilities. This metric was located in the 10K as a single line item named: Total current liabilities.","I can't compute this ratio from the passages provided. The numerator is available, but the denominator is not.
+
+**Operating cash flow (numerator):** The MD&A passage reports ""Net cash flow from operations of $1.47 billion during fiscal 2015"" [C267116]. This is rounded, and the cash flow statement excerpt [C267197] is truncated before its operating-activities total.
+
+**Total current liabilities (denominator):** None of the passages include the Consolidated Balance Sheet, so FY2015 total current liabilities are not provided. The question also limits the resources to the balance sheet and cash flow statement, and only the cash flow statement is partly present.
+
+Because total current liabilities for FY2015 are missing, I can't calculate the operating cash flow ratio or round it to two decimal places. A balance sheet from Adobe's FY2015 10-K would be needed.",declined,declined,
+financebench,financebench_id_10136,A,claude:claude-haiku-5-5,We want to calculate a financial metric. Please help us compute it by basing your answers off of the cash flow statement and the income statement. Here's the question: what is the FY2022 retention ratio (using total cash dividends paid and net income attributable to shareholders) for General Mills? Round answer to two decimal places.,"0.54
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Total cash dividends paid out. This metric was located in the 10K as a single line item named: Dividends paid.
+
+Metric 2: Net income. This metric was located in the 10K as a single line item named: Net earnings attributable to General Mills.","General Mills' FY2022 retention ratio is 54.05 percent, calculated as net income attributable to General Mills less total dividends paid, divided by net income attributable to General Mills.
+- Dividends paid in fiscal 2022 totaled $1,244 million. [C286712]
+- Summed quarterly net earnings attributable to General Mills for fiscal 2022 are $627.0, $597.2, $660.3 and $822.8 million. [C286921]
+Computed: ((ni_q1_fy22 + ni_q2_fy22 + ni_q3_fy22 + ni_q4_fy22) - div_paid_fy22) / (ni_q1_fy22 + ni_q2_fy22 + ni_q3_fy22 + ni_q4_fy22) * 100 with div_paid_fy22=1244 [C286712], ni_q1_fy22=627 [C286921], ni_q2_fy22=597.2 [C286921], ni_q3_fy22=660.3 [C286921], ni_q4_fy22=822.8 [C286921]",correct,correct,
+financebench,financebench_id_01935,A,claude:claude-haiku-5-5,What was the key agenda of the AMCOR's 8k filing dated 1st July 2022?,"Amcor Finance (USA), Inc. and Amcor Flexibles North America, Inc., entered into supplemental indentures relating to Guaranteed Senior Notes due 2026 and 2028. This involved the substitution of the Substitute Issuer (Amcor Flexibles North America) for the Former Issuer (Amcor Finance) and the assumption of covenants under the indentures. (In essence a novation agreement)
+Justification: None","The 8-K dated July 1, 2022 (event date June 30, 2022) reports under Item 8.01 Other Events that on June 30, 2022, Amcor Finance (USA), Inc. (Former Issuer) and Amcor Flexibles North America, Inc. (Substitute Issuer), both wholly-owned subsidiaries of Amcor plc, entered into a Second Supplemental Indenture and a First Supplemental Indenture with Deutsche Bank Trust Company Americas as Trustee. These relate to the 3.625% Guaranteed Senior Notes due 2026 and 4.500% Guaranteed Senior Notes due 2028, and substitute the Substitute Issuer for the Former Issuer and have the Substitute Issuer assume the Former Issuer's covenants under the Indentures. The filing also lists the supplemental indentures as exhibits (4.6 and 4.7).
+- The 8-K reports under Item 8.01 Other Events that on June 30, 2022, Amcor Finance (USA), Inc. and Amcor Flexibles North America, Inc., each a wholly-owned subsidiary of Amcor plc, entered into a Second Supplemental Indenture and a First Supplemental Indenture with Deutsche Bank Trust Company Americas as Trustee. [C270798]
+- The supplemental indentures govern the 3.625% Guaranteed Senior Notes due 2026 and 4.500% Guaranteed Senior Notes due 2028 and relate to the substitution of the Substitute Issuer for the Former Issuer and the assumption by the Substitute Issuer of the covenants of the Former Issuer under the Indentures. [C270799][C270798]
+- The Second Supplemental Indenture and First Supplemental Indenture are filed as Exhibits 4.6 and 4.7. [C270802][C270804][C270813]",correct,correct,
+financebench,financebench_id_00591,C,claude:claude-haiku-5-5,Does Adobe have an improving Free cashflow conversion as of FY2022?,"Yes, the FCF conversion (using net income as the denominator) for Adobe has improved by ~13% from 143% in 2021 to 156% in 2022
+Justification: FCF Conversion: (Net cash provided by operating activities - Purchases of property and equipment)/Net income
+(7838-442)/4756
+(7230-348)/4822","The passages do not contain enough information to answer this question. None of them include cash flow figures, net income, operating cash flow, capital expenditures, or any FY2022 or prior-year financial data, so I cannot calculate free cash flow conversion or determine whether it is improving.
+
+The passages describe Adobe's products and business strategy, including Acrobat [C268273], Adobe Express [C268268], Adobe Stock [C268269], and Digital Learning Services [C268291]. They also note that Creative Cloud is designed to grow ""a recurring and predictable revenue stream that is recognized ratably"" [C268247]. That describes the revenue model but gives no measure of cash generation.
+
+To answer the question, you would need the cash flow statement (operating cash flow and capital expenditures) and the income or revenue figures for FY2022 and prior years from Adobe's annual report or Form 10-K.",declined,declined,
+financebench,financebench_id_00460,C,claude:claude-haiku-5-5,Was there any change in the number of Best Buy stores between Q2 of FY2024 and FY2023?,"Yes, there is decline in number stores by 1.32% from 982 stores in Q2 FY 2023 to 969 by the end of Q2 FY2024.
+Justification: 969/982-1","Yes. The number of Best Buy stores in the Domestic segment fell between the end of Q2 FY2023 and the end of Q2 FY2024.
+
+- **Domestic segment (Best Buy brand):** Ended the second quarter of fiscal 2024 with 907 stores, down from 930 at the end of the second quarter of fiscal 2023, a decrease of 23 [C277247]. In fiscal 2024 the segment began the quarter with 908 stores, opened none, and closed 1 [C277247]. In fiscal 2023 it began with 931, opened 1, and closed 2 [C277247].
+- **International segment (Canada Best Buy):** Ended the second quarter of fiscal 2024 with 128 stores, up from 127 a year earlier, after opening 1 store [C277254].
+
+The passages do not state a reason for the Domestic decline. They say Best Buy expected to close 20 to 30 Best Buy stores in fiscal 2024 [C277247].",incorrect,incorrect,
+financebench,financebench_id_00288,A,claude:claude-haiku-5-5,Was there any drop in Cash & Cash equivalents between FY 2023 and Q2 of FY2024?,"Yes, there was a decline of ~42% between FY2023 and Q2 of FY 2024.
+Justification: 1093/1874-1","Yes. Cash and cash equivalents fell from $1,874 million at January 28, 2023 (FY2023 year-end) to $1,093 million at July 29, 2023 (Q2 FY2024), a decrease of 781.00 USD millions.
+- Cash and cash equivalents were $1,874 million at January 28, 2023 and $1,093 million at July 29, 2023. [C277261][C277197]
+- The decrease in cash and cash equivalents from January 28, 2023 was primarily due to the timing and volume of inventory purchases and payments, dividend payments and capital expenditures, partially offset by earnings. [C277261]
+Computed: cash_fy2023_end - cash_q2_fy2024 with cash_fy2023_end=1874 [C277261], cash_q2_fy2024=1093 [C277261]",correct,correct,
+v2,W05,A,claude:claude-haiku-5-5,Why did Honeywell's net sales increase in Q2 2023?,Increased pricing.,"Honeywell's net sales rose from $8.953 billion in Q2 2022 to $9.146 billion in Q2 2023, an increase of 2.2% ($193 million) [F1][F2]. The filing attributes the increase mainly to price increases of 4%, partly offset by volume declines of (1)% and unfavorable foreign currency translation of (1)% [C881912]. By segment, Aerospace grew $443 million, driven by higher Commercial Aviation Aftermarket organic sales of $330 million tied to higher flight hours and Commercial Aviation Original Equipment organic sales of $83 million from increased shipments [C882234]. Performance Materials and Technologies rose $167 million, led by Process Solutions organic sales of $129 million and UOP organic sales of $61 million from gas processing growth [C882561]. Honeywell Building Technologies declined $21 million due to unfavorable currency translation [C882558].",correct,correct,
+financebench,financebench_id_09724,C,claude:claude-haiku-5-5,What is Coca Cola's FY2021 COGS % margin? Calculate what was asked by utilizing the line items clearly shown in the income statement.,"39.7%
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Cost of goods sold. This metric was located in the 10K as a single line item named: Cost of goods sold.
+
+Metric 2: Total revenue. This metric was located in the 10K as a single line item named: Net Operating Revenues.","**Coca-Cola's FY2021 COGS as a percentage of net operating revenues is about 39.7%.**
+
+From the consolidated statement of income for the year ended December 31, 2021, net operating revenues were $38,655 million and cost of goods sold was $15,357 million [C280344].
+
+COGS % = Cost of goods sold ÷ Net operating revenues = $15,357 ÷ $38,655 ≈ 39.73%
+
+As a cross-check, gross profit of $23,298 million [C280344] is 60.3% of net operating revenues, which matches the company's reported gross profit margin of 60.3 percent for 2021 [C280282]. The COGS share and the gross margin share sum to 100%.",correct,correct,
+v2,W10,A0,claude:claude-haiku-5-5,Why did Abbott's diagnostics sales decline in Q2 2024?,Lower demand for COVID-19 tests.,"Abbott's diagnostics sales declined in Q2 2024 mainly because of lower demand for COVID-19 tests, particularly rapid diagnostic tests. Abbott's COVID-19 testing-related sales totaled $102 million in the second quarter of 2024 versus $263 million in the second quarter of 2023, a decline of 161.00 million USD.
+- The Q2 2024 total net sales increase, excluding foreign exchange, was partially offset by a decrease in demand for Abbott's rapid diagnostic tests to detect COVID-19. [C28015]
+- Abbott's COVID-19 testing-related sales totaled $102 million during the second quarter of 2024 and $263 million during the second quarter of 2023. [C28015]
+- The 9.0 percent decrease in Diagnostic Products sales in the first six months of 2024, excluding foreign exchange, was primarily driven by lower demand for COVID-19 tests. [C28018]
+Computed: covid_q2_2023 - covid_q2_2024 with covid_q2_2023=263 [C28015], covid_q2_2024=102 [C28015]",correct,correct,
+v2,W04,A,mlx:mlx-community/Qwen2.5-7B-Instruct-4bit,Why did Caterpillar's sales increase in Q2 2023?,Higher sales volume and favorable price realization.,"Caterpillar's sales increased by 21.6% from $14.247 billion in Q2 2022 to $17.318 billion in Q2 2023, due to higher sales volume and favorable price realization. [F1] [F2] [C174382] [C173209] [C175545] [C173207]",correct,correct,
+financebench,financebench_id_00605,A,claude:claude-haiku-5-5,What percent of Ulta Beauty's total spend on stock repurchases for FY 2023 occurred in Q4 of FY2023?,"36%. The answer here assumes FY2023 refers to the 12 months ended on January 28, 2023 (although the company refers to this period as its fiscal 2022.
+Justification: Fiscal 2022 = FY2023. Fiscal 2021 = FY2022. Percent spent in Q4 of FY2023 = Amount spent in Q4 of FY2023/Total amount spent in FY2023*100 =$328.1 million /$900 million * 100 = 36%","About 36.46% of Ulta Beauty's total stock repurchase spend occurred in the fourth quarter. The passages label this period fiscal 2022, which ended January 28, 2023, so this is the period the question calls FY 2023.
+- During the fourth quarter of fiscal 2022, the Company repurchased 722,457 shares of its common stock at a cost of $328.1 million. [C304100]
+- During fiscal 2022, the Company repurchased 2.2 million shares of its common stock at a cost of $900.0 million. [C304100][C304101]
+- The fiscal 2022 fourth quarter ended January 28, 2023. [C304093]
+Computed: q4_repurchase / total_repurchase * 100 with q4_repurchase=328.1 [C304100], total_repurchase=900 [C304101]",correct,correct,
+v2,W01,A0,claude:claude-haiku-5-5,Why did 3M's sales drop in Q2 2023?,"Lower disposable respirator sales, a slowdown in packaging and shipping, and weakness in closure and masking systems.","3M Company's net sales / revenue for Q2 2023 was $8.325 billion [F1]. That is down 4.3% ($377 million) from $8.702 billion in Q2 2022 [F2] (year-over-year; computed in SQL).
+
+Reasons given in the filing:
+- Organic sales declined in the second quarter of 2023 in the Safety and Industrial segment, with organic sales change of (4.6) percent, and translation (currency) reduced sales a further (0.9) percent, for a total sales change of (5.5) percent. [C454063]
+- Safety and Industrial segment sales were 2,765 million in the second quarter of 2023 compared with 2,924 million in the second quarter of 2022. [C454063]
+- Cost of sales as a percent of sales decreased in the second quarter of 2023 compared with the same period last year, mainly due to lower year-on-year net costs for significant PFAS-related litigation at the Zwijndrecht, Belgium site and higher selling prices, partially offset by higher raw materials and energy costs. [C453863]
+- The passages do not explain the overall company-wide sales decline from 8.702 billion to 8.325 billion dollars; the cited explanations relate to segment organic sales, currency translation, and cost of sales and SG&A. [C453863][C454063]",incorrect,incorrect,
+financebench,financebench_id_00723,C,claude:claude-haiku-5-5,"Does AMEX have an improving operating margin profile as of 2022? If operating margin is not a useful metric for a company like this, then state that and explain why.","Performance is not measured through operating margin
+Justification: It's a financial services company and performance is measured through the Net Interest Margin.","The passages do not contain enough information to say whether AMEX's operating margin improved in 2022.
+
+**What the passages do show:**
+- Corporate & Other pretax loss was $2.2 billion in 2022 versus $1.0 billion in 2021, driven mainly by net losses on Amex Ventures investments, a prior-year non-cash gain related to GBTG's equity book value, and higher compensation costs [C273072].
+- Operating expenses increased 24% year-over-year, mainly from Amex Ventures losses, higher compensation, and higher Card Member rewards and marketing tied to network volume growth [C273020].
+- Operating cash flow rose to $21.1 billion in 2022 from $14.6 billion in 2021 [C273099]. Cash flow is not an operating margin measure, though.
+
+**What is missing:**
+- No consolidated revenue (or total net revenues) figures for 2021 or 2022.
+- No consolidated pretax income or operating income for AMEX as a whole, only the Corporate & Other segment.
+- No definition of ""operating income"" as the company uses it.
+
+Without revenue and a consolidated profit measure for both years, I cannot calculate or compare operating margins. The 24% expense increase alone does not show the margin direction, because revenue growth could offset it.
+
+**On whether operating margin is a useful metric here:** The passages do not address this. AMEX reports segments and pretax results, and the passages do not say whether operating margin is a metric management uses. As a card issuer with significant interest and credit-loss costs, its income statement may not map neatly onto a standard operating margin, but that conclusion would rely on information outside these passages. A better-suited measure, such as pretax margin or return on equity, would need the revenue and income figures from the full filing.",declined,declined,
+financebench,financebench_id_02119,A,claude:claude-haiku-5-5,"If JPM went bankrupted by the end by 2021 Q1 and liquidated all of its assets to pay its shareholders, how much could each shareholder get?","They could receive $66.56 per share.
+Justification: None","Assuming liquidation at book value, with preferred stockholders paid first and the remainder split across common shares outstanding (issued shares less treasury shares), each common shareholder would receive about 82.31 USD per share.
+- Total stockholders' equity at March 31, 2021 was $280,714 million, including preferred stock of $31,563 million. [C288086][C288085]
+- JPMorgan issued 4,104,933,895 common shares and held 1,077,805,783 shares in treasury stock at March 31, 2021. [C288086]
+Computed: (total_equity - preferred) / (issued_shares_mm - treasury_shares_mm) with total_equity=280714 [C288086], preferred=31563 [C288085], issued_shares_mm=4104.93 [C288086], treasury_shares_mm=1077.81 [C288086]",incorrect,incorrect,
+financebench,financebench_id_01981,A,claude:claude-haiku-5-5,Was American Express able to retain card members during 2022?,"Yes
+Justification: None","Yes. American Express reported that in 2022 new card acquisitions reached record levels and Card Member retention remained high, which supported its net card fee growth of 17 percent year-over-year.
+- In 2022, new card acquisitions reached record levels and Card Member retention remained high. [C273017]
+- Net card fees increased 17 percent year-over-year, reflecting the impact of investments in premium value propositions. [C273017]",correct,correct,
+financebench,financebench_id_01490,A,claude:claude-haiku-5-5,"What is the amount of the gain accruing to JnJ as a result of the separation of its Consumer Health business segment, as of August 30, 2023?","JnJ will make a gain of approximately $20 billion from the separation of its Consumer Health business segment.
+Justification: None","Johnson & Johnson will present its Consumer Health business as discontinued operations, including a gain of approximately 20.00 in the third quarter of 2023 from the Kenvue separation.
+- As a result of the completion of the exchange offer, Johnson & Johnson will present its Consumer Health business financial results as discontinued operations, including a gain of approximately $20 billion in the third quarter of 2023. [C287719]
+- Johnson & Johnson completed an exchange offer to finalize the separation of Kenvue Inc. and issued updated financials on August 30, 2023. [C287715]
+Computed: gain_usd_billions with gain_usd_billions=20 [C287719]",correct,correct,
+v2,W06,A,claude:claude-haiku-5-5,What drove growth in Honeywell's Aerospace business in Q2 2023?,Higher flight hours driving commercial aviation aftermarket demand.,"Aerospace Q2 2023 growth was driven by higher organic sales in Commercial Aviation Aftermarket ($330 million), primarily from higher sales volumes in air transport due to an increase in flight hours, and in Commercial Aviation Original Equipment ($83 million), primarily from higher sales volumes due to increased shipments. Aerospace sales increased $443 million in total, and segment margin rose 120 basis points to 27.7%.
+- Aerospace sales increased $443 million in Q2 2023 versus Q2 2022 due to higher organic sales of $330 million in Commercial Aviation Aftermarket, primarily driven by higher sales volumes in air transport due to an increase in flight hours. [C882234]
+- Aerospace also had higher organic sales of $83 million in Commercial Aviation Original Equipment, primarily driven by higher sales volumes due to increased shipments. [C882234]
+- Aerospace segment profit increased $157 million and segment margin percentage increased 120 basis points to 27.7% compared to 26.5% in Q2 2022. [C882234]
+- Aerospace organic net sales grew 16% in Q2 2023 compared to the same period of 2022. [C882233]",correct,correct,
+financebench,financebench_id_03856,A,claude:claude-haiku-5-5,What is the FY2017 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places. Please utilize information provided primarily within the balance sheet and the cash flow statement.,"0.83
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Cash from operations. This metric was located in the 10K as a single line item named: Net cash provided by operating activities.
+
+Metric 2: Total current liabilities. This metric was located in the 10K as a single line item named: Total current liabilities.","Adobe's FY2017 operating cash flow ratio is 0.83 times, using net cash provided by operating activities of USD 2,912,853 thousand divided by total current liabilities of USD 3,527,457 thousand.
+- Net cash provided by operating activities for fiscal 2017 was USD 2,912,853 thousand. [C268065]
+- Total current liabilities as of December 1, 2017 were USD 3,527,457 thousand. [C268057]
+Computed: ocf_2017 / cur_liab_2017 with ocf_2017=2.91285e+06 [C268065], cur_liab_2017=3.52746e+06 [C268057]",correct,correct,
+financebench,financebench_id_00222,A,claude:claude-haiku-5-5,"Does AMD have a reasonably healthy liquidity profile based on its quick ratio for FY22? If the quick ratio is not relevant to measure liquidity, please state that and explain why.","Yes. The quick ratio is 1.57, calculated as (cash and cash equivalents+Short term investments+Accounts receivable, net+receivables from related parties)/ (current liabilities).
+Justification: None","Using cash and cash equivalents, short-term investments and accounts receivable over total current liabilities, AMD's FY22 quick ratio is 1.57 times (USD millions inputs). A ratio above 1.0 suggests reasonably healthy short-term liquidity, and the company reports $5.9 billion of cash, cash equivalents and short-term investments at December 31, 2022.
+- As of December 31, 2022, AMD's cash, cash equivalents and short-term investments were $5.9 billion. [C272600]
+- At December 31, 2022, AMD had cash and cash equivalents of $4,835 million, short-term investments of $1,020 million, accounts receivable, net of $4,126 million, and total current liabilities of $6,369 million. [C272616]
+- AMD states that its cash, cash equivalents and short-term investments together with its revolving credit facility, commercial paper program and cash flows from operations are expected to be sufficient to fund operations over the next 12 months and beyond. [C272388]
+Computed: (cash + sti + ar) / cl with cash=4835 [C272616], sti=1020 [C272616], ar=4126 [C272616], cl=6369 [C272616]",correct,correct,
+financebench,financebench_id_01351,A,claude:claude-haiku-5-5,How much has the effective tax rate of American Express changed between FY2021 and FY2022?,"The effective tax rate for American Express has changed/dropped from 24.6% in FY 2021 to 21.6% in FY 2022.
+Justification: None","The effective tax rate decreased from 24.6 percent in 2021 to 21.6 percent in 2022, a change of -3.00 percentage points.
+- The effective tax rate was 21.6 percent and 24.6 percent for 2022 and 2021, respectively. [C273031]
+- The reduction in the effective tax rate primarily reflected discrete tax benefits in the current year related to the resolution of prior-year tax items. [C273031][C273032]
+- Actual tax rates were 21.6 percent in 2022 and 24.6 percent in 2021. [C273352]
+Computed: rate_2022 - rate_2021 with rate_2022=21.6 [C273352], rate_2021=24.6 [C273352]",correct,correct,
+v2,W09,C,claude:claude-haiku-5-5,Why did Abbott's net sales increase in Q2 2024?,"Higher sales in Medical Devices, Nutritional Products and Established Pharmaceutical Products, partly offset by lower COVID-19 testing sales.","Abbott's Q2 2024 net sales grew 7.5 percent excluding the impact of foreign exchange. The filing attributes this to higher sales in the Medical Devices, Nutritional Products, and Established Pharmaceutical Products segments, partly offset by lower demand for Abbott's COVID-19 rapid diagnostic tests [C28015].
+
+COVID-19 testing sales fell from $263 million in Q2 2023 to $102 million in Q2 2024. Excluding them, total net sales rose 5.7 percent, and excluding both COVID-19 testing and foreign exchange, they rose 9.3 percent [C28015].
+
+Foreign exchange worked against the growth. A stronger U.S. dollar decreased total international sales by 5.6 percent and total sales by 3.5 percent in the quarter [C28015].
+
+The passages do not state the reported (all-in) percentage change in Q2 net sales, and they do not quantify how much each segment contributed to the increase.",correct,correct,
+financebench,financebench_id_00585,C,claude:claude-haiku-5-5,How does Boeing's effective tax rate in FY2022 compare to FY2021?,"Effective tax rate in FY2022 was 0.62%, compared to  -14.76% in FY2021.
+Justification: Effective tax rate=Income tax (expense) benefit/ Loss before income taxes*100=(31)/(5,022)*100=0.62% in 2022 and 743/(5,033)*100=-14.76%.","Boeing's effective tax rate fell from a provision in FY2021 to a slight negative rate in FY2022.
+
+- **FY2022:** The effective income tax rate was (0.6)% [C278755]. The tax reconciliation shows income tax expense of $31 million, or (0.6)% [C278918].
+- **FY2021:** The effective income tax rate was 14.8% [C278755]. The reconciliation shows an income tax benefit of ($743) million and a rate of 14.7% [C278918]. The two filings differ by 0.1 point for FY2021, and I can't resolve that from these passages.
+
+The change is roughly 15 percentage points, about 15.4 points using the 14.8% figure. The main driver was the valuation allowance. It added 1,199 million, or (23.9) points, of rate effect in 2022, compared with 512 million, or (10.2) points, in 2021 [C278918]. The U.S. federal statutory rate was 21.0% in both years [C278918]. Other reconciling items, such as R&D credits and the CARES Act, moved less. Also, the table shows a 2021 CARES Act effect of 3 million and no audit settlement amount in either year [C278918].",incorrect,incorrect,
+financebench,financebench_id_10420,C,claude:claude-haiku-5-5,"Based on the information provided primarily in the statement of financial position and the statement of income, what is AES's FY2022 return on assets (ROA)? ROA is defined as: FY2022 net income / (average total assets between FY2021 and FY2022). Round your answer to two decimal places.","-0.02
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Net income. This metric was located in the 10K as a single line item named: NET INCOME (LOSS) ATTRIBUTABLE TO THE AES CORPORATION.
+
+Metric 2: Total assets. This metric was located in the 10K as a single line item named: TOTAL ASSETS.","I can't calculate AES's FY2022 ROA reliably from these passages. The consolidated balance sheet, which would give total assets for FY2021 and FY2022, is not included.
+
+The only total assets figures provided are from the parent-company-only Schedule I balance sheet: $7,575 million at December 31, 2022 and $7,525 million at December 31, 2021 [C269516]. These are not consolidated figures, so they don't answer the question as defined.
+
+For net income, the provided figures are net income attributable to The AES Corporation of $(546) million for 2022 [C268968], which matches the parent-only statement of comprehensive income [C269519]. Consolidated net income (loss) before noncontrolling interests is not separately stated for 2022 in these passages. Selected data shows loss from continuing operations of $(505) million [C268968].
+
+If one used the parent-only figures as a proxy, the calculation would be:
+- Average total assets = (7,525 + 7,575) / 2 = 7,550
+- ROA = (−546) / 7,550 ≈ −0.07, or −7.23%
+
+This is a parent-only approximation, not the consolidated ROA the question asks for. To get the consolidated answer, the consolidated balance sheets for 2021 and 2022 would be needed.",declined,incorrect,
+v2,W03,A,mlx:mlx-community/Qwen2.5-7B-Instruct-4bit,Why did J&J's infectious disease product sales decline in Q2 2023?,A decline in COVID-19 vaccine revenue.,"Johnson & Johnson's net sales / revenue for Q2 2023 was $25.530 billion [F1]. That is up 6.3% ($1.510 billion) from $24.020 billion in Q2 2022 [F2] (year-over-year; computed in SQL).
+
+The retrieved passages do not explain this; abstaining on the 'why' part.",declined,declined,
+v2,W10,A,mlx:mlx-community/Qwen2.5-3B-Instruct-4bit,Why did Abbott's diagnostics sales decline in Q2 2024?,Lower demand for COVID-19 tests.,"Abbott Laboratories's net sales / revenue for Q2 2024 was $10.377 billion [F1]. That is up 4.1% ($413 million) from $9.964 billion in Q1 2024 [F2] (quarter-over-quarter; computed in SQL).
+
+Reasons given in the filing:
+- The 6.3 percent increase in total net sales during the first six months of 2024, excluding the impact of foreign exchange, reflected sales growth in the Medical Devices, Nutritional Products, and Established Pharmaceutical Products segments, partially offset by a decrease in demand for Abbott’s rapid diagnostic tests to detect COVID-19. [C28016]",correct,correct,
+financebench,financebench_id_00669,A,claude:claude-haiku-5-5,"What drove gross margin change as of FY2022 for JnJ? If gross margin is not a useful metric for a company like this, then please state that and explain why.","For FY22, JnJ had changes in gross margin due to: One-time COVID-19 vaccine manufacturing exit related costs, Currency impacts in the Pharmaceutical segment, Commodity inflation in the MedTech and Consumer Health segments, partially offset by Supply chain benefits in the Consumer Health segment.
+Justification: Gross margin change is equivalent to the increase in cost of products sold as a percent to sales.","JnJ's gross margin (gross profit as a percent of sales) changed by -0.91 percentage points from 2021 to 2022, falling as cost of products sold rose as a percent of sales. The cited drivers were one-time COVID-19 vaccine manufacturing exit costs, currency impacts in the Pharmaceutical segment, and commodity inflation in MedTech and Consumer Health, partly offset by supply chain benefits in Consumer Health. The passages do not say whether gross margin is or is not a useful metric for this company, so I cannot state that it is not useful.
+- Gross profit was $63,854 million in 2022 and $63,920 million in 2021, on sales to customers of $94,943 million in 2022 and $93,775 million in 2021. [C287287]
+- Cost of products sold increased as a percent to sales, driven by one-time COVID-19 vaccine manufacturing exit related costs, currency impacts in the Pharmaceutical segment, and commodity inflation in the MedTech and Consumer Health segments. [C287236]
+- The increase in cost of products sold as a percent to sales was partially offset by supply chain benefits in the Consumer Health segment. [C287236]
+- Intangible asset amortization expense included in cost of products sold was $4.3 billion and $4.7 billion for fiscal years 2022 and 2021. [C287236]
+- Worldwide sales increased 1.3% to $94.9 billion in 2022, with currency a negative 4.8% impact on sales growth. [C287217]
+Computed: (gp_2022 / sales_2022 - gp_2021 / sales_2021) * 100 with gp_2022=63854 [C287287], sales_2022=94943 [C287287], gp_2021=63920 [C287287], sales_2021=93775 [C287287]",correct,correct,
+financebench,financebench_id_02608,C,claude:claude-haiku-5-5,"In agreement with the information outlined in the income statement, what is the FY2015 - FY2017 3 year average net profit margin (as a %) for Best Buy? Answer in units of percents and round to one decimal place.","2.8%
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Total revenue. This metric was located in the 10K as a single line item named: Revenue.
+
+Metric 2: Net income. This metric was located in the 10K as a single line item named: Net earnings attributable to Best Buy Co., Inc. shareholders.","**Answer: 2.8%**
+
+I used net earnings attributable to Best Buy Co., Inc. shareholders divided by total revenue for each year. The income statement data is in the Five-Year Financial Highlights [C276207].
+
+- **FY2015:** Revenue $40,339 million; net earnings attributable to shareholders $1,233 million. Margin = 1,233 / 40,339 ≈ 3.06% [C276207]
+- **FY2016:** Revenue $39,528 million; net earnings attributable to shareholders $897 million. Margin = 897 / 39,528 ≈ 2.27% [C276207]
+- **FY2017:** Revenue $39,403 million; net earnings attributable to shareholders $1,228 million. Margin = 1,228 / 39,403 ≈ 3.12% [C276207]
+
+The three-year average is (3.06% + 2.27% + 3.12%) / 3 ≈ 2.81%, which rounds to 2.8%.",correct,correct,
+financebench,financebench_id_00476,C,claude:claude-haiku-5-5,Which debt securities are registered to trade on a national securities exchange under American Express' name as of 2022?,"There are none
+Justification: No debt securities are listed under the securities registered pursuant to Section 12(b) of the Act, which implies there are none","The passages do not identify any debt securities registered to trade on a national securities exchange in American Express' name as of 2022.
+
+The cover page lists only one class under Section 12(b): Common Shares (par value $0.20 per share), trading under the symbol AXP on the New York Stock Exchange. It also states that no securities are registered under Section 12(g) [C272816].
+
+Exhibit 4.2 refers to a ""Description of American Express Company's securities registered pursuant to Section 12"" and incorporates it by reference from a prior 10-K [C273391]. The passage is cut off and does not name any debt securities, so it does not settle the question.
+
+Exhibit 4.1 says the instruments defining the rights of holders of long-term debt securities are omitted under Item 601 of Regulation S-K, and that the company will furnish them on request [C273391]. This describes omitted debt instruments, not debt securities registered on an exchange.
+
+The passages discussing debt focus on amounts and issuances, such as $42.6 billion in long-term debt outstanding and $10.2 billion of fixed rate senior notes issued in 2022 [C273090]. They do not say whether any of these notes are exchange-listed.
+
+To answer fully, the Exhibit 4.2 description of registered securities would be needed.",correct,correct,
+v2,W04,A,openai:qwen2.5:3b-instruct,Why did Caterpillar's sales increase in Q2 2023?,Higher sales volume and favorable price realization.,"Caterpillar's sales increased by $1.456 billion (9.2%) in Q2 2023 compared to Q1 2023, driven by higher sales volume across all primary segments and specific regional factors such as favorable price realization and equipment sales in Latin America. [F1] [C174382][C175545][C174382]",correct,correct,
+financebench,financebench_id_00790,A,claude:claude-haiku-5-5,Is CVS Health a capital-intensive business based on FY2022 data?,"Yes, CVS Health requires an extensive asset base to operate, which is evident from its ROA of only 1.82% in 2022 and 3.39% in 2021, though it should be noted that a significant portion of this asset base is goodwill, and CVS's fixed assets/total assets ratio is on the lower side of 5.6%.
+Justification: Property and equipment, net/Total Assets
+12873/228275
+
+ROA=Net Income/Total Assets
+4165/228275
+7898/232999","CVS Health's FY2022 capital intensity is indicated by gross purchases of property and equipment of $2,727 million, which is about 16.86 % of net cash provided by operating activities of $16,177 million, and net property and equipment of $13,117 million. Whether this is capital-intensive is a judgment; the passages show moderate capex relative to operating cash flow.
+- Purchases of property and equipment were $2,727 million in 2022. [C285166]
+- Net cash provided by operating activities was $16,177 million in 2022. [C285166]
+- Gross capital expenditures were approximately $2.7 billion in 2022, with 73% for technology, digital and other strategic initiatives and 27% for store, fulfillment and support facilities. [C285079]
+- Property and equipment, net was $13,117 million at December 31, 2022. [C285198]
+Computed: capex_2022 / ocf_2022 * 100 with capex_2022=2727 [C285166], ocf_2022=16177 [C285166]",incorrect,incorrect,
+financebench,financebench_id_02981,A,claude:claude-haiku-5-5,"Taking into account the information outlined in the income statement, what is the FY2019 - FY2021 3 year average unadjusted operating income % margin for Corning? Answer in units of percents and round to one decimal place.","10.3%
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Unadjusted operating income. This metric was located in the 10K as a single line item named: OperatingÂ income.
+
+Metric 2: Total revenue. This metric was located in the 10K as a single line item named: NetÂ sales.","Corning's FY2019–FY2021 3-year average unadjusted operating income margin is 10.28%.
+- Corning reported operating income of $2,112 million in 2021, $509 million in 2020, and $1,306 million in 2019. [C282174]
+- Corning reported net sales of $14,082 million in 2021, $11,303 million in 2020, and $11,503 million in 2019. [C282174]
+Computed: ((oi_2021/ns_2021 + oi_2020/ns_2020 + oi_2019/ns_2019) / 3) * 100 with oi_2021=2112 [C282174], ns_2021=14082 [C282174], oi_2020=509 [C282174], ns_2020=11303 [C282174], oi_2019=1306 [C282174], ns_2019=11503 [C282174]",correct,correct,
+v2,W12,A,openai:qwen2.5:3b-instruct,Why did Lockheed Martin's net sales increase in Q2 2024?,"Higher product sales at RMS, MFC and Aeronautics.","Lockheed Martin Corporation's net sales / revenue for Q2 2024 was $18.122 billion [F1]. That is up 5.4% ($927 million) from $17.195 billion in Q1 2024 [F2] (quarter-over-quarter; computed in SQL).
+
+Reasons given in the filing:
+- Lockheed Martin's net sales increased by $1.2 billion, or 17%, compared to the same period in 2023. [C1417344]
+- The increase was primarily attributable to higher net sales of $715 million on IWSS programs due to higher volume on radar programs and the CSC program, and new program ramp up within the laser systems portfolio. [C1417344]
+- Aeronautics' net sales during the six months ended June 30, 2024 increased $978 million, or 7%, compared to the same period in 2023. [C1417053]",incorrect,incorrect,
+financebench,financebench_id_00464,C,claude:claude-haiku-5-5,Is Boeing's business subject to cyclicality?,"Yes, Boeing's business is subject to cyclicality due to its exposure to the airline industry which is a cyclical industry.
+Justification: A major portion of Boeing's revenue is derived from the sale of aircraft to commercial airlines. The commercial airlines business is cyclical, and subject to significant profit swings.","The passages do not explicitly say whether Boeing's business is cyclical. The word ""cyclical"" and any discussion of economic cycles are absent.
+
+They do show that Boeing's demand is sensitive to industry conditions and events:
+
+- **Commercial aircraft demand:** The industry ""continues to recover from the lingering effects of the COVID-19 pandemic,"" and ""the reduction of demand and disruption in production has adversely impacted most manufacturers in the commercial aircraft industry"" [C278772]. Domestic travel is also described as recovering from the pandemic [C278749].
+- **Competitive pricing pressure:** Commercial Airplanes faces ""intense pressures on pricing,"" which the company expects to ""continue or intensify in the coming years"" [C278774].
+- **Government spending:** BGS's major customer is the U.S. government, which ""remains subject to the spending limits and uncertainty"" that ""could restrict the execution of certain program activities and delay new programs"" [C278807].
+- **Non-U.S. exposure:** About 70% of Commercial Airplanes' total backlog is with non-U.S. airlines [C278772], and trade tensions could have a material adverse impact [C278713].
+
+These passages describe demand downturns and recovery, which suggests exposure to cyclical forces. However, they do not characterize the business as cyclical, so a direct answer would require the filing's risk factors or MD&A discussion of economic cycles, which are not included here.",incorrect,declined,
+financebench,financebench_id_09724,A,claude:claude-haiku-5-5,What is Coca Cola's FY2021 COGS % margin? Calculate what was asked by utilizing the line items clearly shown in the income statement.,"39.7%
+Justification: The metric in question was calculated using other simpler metrics. The various simpler metrics (from the current and, if relevant, previous fiscal year(s)) used were:
+
+Metric 1: Cost of goods sold. This metric was located in the 10K as a single line item named: Cost of goods sold.
+
+Metric 2: Total revenue. This metric was located in the 10K as a single line item named: Net Operating Revenues.","Coca-Cola's FY2021 COGS as a percentage of net operating revenues (cost of goods sold divided by net operating revenues) is 39.73%.
+- Cost of goods sold for 2021 was $15,357 million and net operating revenues for 2021 were $38,655 million. [C280344]
+Computed: cogs_2021 / revenue_2021 * 100 with cogs_2021=15357 [C280344], revenue_2021=38655 [C280344]",correct,correct,
+financebench,financebench_id_01319,C,claude:claude-haiku-5-5,What is the quantity of restructuring costs directly outlined in AES Corporation's income statements for FY2022? If restructuring costs are not explicitly outlined then state 0.,"0
+Justification: None","**Answer: 0.** The AES Consolidated Statements of Operations for FY2022 do not explicitly list a restructuring costs line.
+
+The FY2022 statement of operations shows lines such as ""Net equity in losses of affiliates,"" ""Income (loss) from continuing operations,"" and ""Net income (loss) attributable to The AES Corporation"" [C269162]. None of these is a restructuring item.
+
+One passage mentions restructuring. It says AES removed the adjustment for ""costs directly associated with a major restructuring program"" from its non-GAAP definitions effective January 1, 2021, because that adjustment was specific to a program announced in 2018. It then says ""There were no such costs in"" but the passage cuts off before naming the year [C269013]. That passage concerns non-GAAP adjustments, not the income statement, and the truncated sentence does not confirm a FY2022 figure.",correct,correct,

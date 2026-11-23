@@ -1,4 +1,4 @@
-"""Experiments of plan section 16: systems A/B/C x models, on our question set (v2) and FinanceBench.
+"""Experiments of plan section 16: systems A/A0/C x models, on our question set (v2) and FinanceBench.
 
   python eval/run_experiments.py run --set v2 --system A --llm claude --model claude-haiku-5-5
   python eval/run_experiments.py grade --set v2
@@ -7,9 +7,9 @@
 Systems:
   A  our workflow (finqa.workflow.answer); on FinanceBench it is given the document
   A0 ablation: the same workflow with the template answer instead of the LLM-written one
-  B  full-document baseline: the whole correct filing + the question
   C  simple RAG baseline: top passages of the correct filing + the question
-B and C always get the correct filing (from the answer key / FinanceBench), which favours them.
+C always gets the correct filing (from the answer key / FinanceBench), which favours it.
+(The full-filing baseline B of the plan was dropped: expensive, and it mostly measures context size.)
 
 Every answer is appended to eval/results/<set>/<system>__<model>.jsonl as soon as it is done, so a
 stopped run resumes without paying twice. Grading is a separate step:
@@ -18,7 +18,7 @@ stopped run resumes without paying twice. Grading is a separate step:
     new value or the absolute change (only the % if the question asks for a percentage).
   * v2 "why" and every FinanceBench answer: an LLM grader (eval/judge.py) compares the answer with
     the gold reason / answer and labels it correct, incorrect or declined.
-  * v2 "decline" questions: system A must return abstain/clarify; for B and C the grader decides
+  * v2 "decline" questions: system A must return abstain/clarify; for C the grader decides
     whether the answer declines.
 """
 from __future__ import annotations
@@ -57,7 +57,6 @@ def questions(name: str) -> list[dict]:
 
 # ---------------------------------------------------------------------------- running
 def ask(system: str, q: dict, set_name: str) -> dict:
-    from finqa.baseline import baseline_answer
     from finqa.rag_baseline import rag_answer
     from finqa.workflow import answer
     if system in ("A", "A0"):
@@ -65,13 +64,11 @@ def ask(system: str, q: dict, set_name: str) -> dict:
                       writer=system == "A")
     if not q.get("accession"):  # questions without a filing (unknown company, no company named)
         return {"status": "no_document", "answer": "", "usage": {}, "latency_s": 0}
-    if system == "B":
-        return baseline_answer(q["question"], accession=q["accession"])
     return rag_answer(q["question"], q["accession"])
 
 
 def result_path(set_name: str, system: str, model: str) -> Path:
-    return RESULTS / set_name / f"{system}__{model.replace('/', '_')}.jsonl"
+    return RESULTS / set_name / f"{system}__{model.replace('/', '_').replace(':', '_')}.jsonl"  # portable names
 
 
 def sample_ids(set_name: str, n: int) -> set[str]:
@@ -245,7 +242,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("step", choices=["run", "grade", "summary", "agreement"])
     ap.add_argument("--set", default="v2", choices=["v2", "financebench"])
-    ap.add_argument("--system", choices=["A", "A0", "B", "C"])
+    ap.add_argument("--system", choices=["A", "A0", "C"])
     ap.add_argument("--llm", help="LLM preset (claude, hkust, qwen, ...)")
     ap.add_argument("--model", help="model id, e.g. claude-haiku-5-5")
     ap.add_argument("--split", choices=["test", "dev"])

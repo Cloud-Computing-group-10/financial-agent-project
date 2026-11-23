@@ -1,6 +1,7 @@
 """Filings that come as PDF files: the documents of the FinanceBench test set.
 
-  python -m finqa.pdf_docs            load data/financebench/pdfs into the database
+  python -m finqa.pdf_docs --download    fetch the 84 PDFs from FinanceBench's GitHub repository
+  python -m finqa.pdf_docs               load data/financebench/pdfs into the database
 
 FinanceBench (Patronus AI) asks 150 questions about 84 filings of 32 US companies: mostly 10-Ks,
 some 10-Qs, earnings releases and 8-Ks. They are stored like our 10-Qs (a documents row and
@@ -40,6 +41,27 @@ COMPANIES = {
 }
 FORMS = {"10k": "10-K", "10q": "10-Q", "8k": "8-K", "Earnings": "Earnings release"}
 QUARTER_END = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}
+PDF_URL = "https://raw.githubusercontent.com/patronus-ai/financebench/main/pdfs/{}.pdf"
+
+
+def used_documents(folder: Path = FINANCEBENCH) -> list[dict]:
+    """The filings the 150 open-source questions ask about."""
+    docs = [json.loads(line) for line in (folder / "financebench_document_information.jsonl").open()]
+    used = {json.loads(line)["doc_name"] for line in (folder / "financebench_open_source.jsonl").open()}
+    return sorted((d for d in docs if d["doc_name"] in used), key=lambda d: d["doc_name"])
+
+
+def download(folder: Path = FINANCEBENCH) -> None:
+    import requests
+    (folder / "pdfs").mkdir(parents=True, exist_ok=True)
+    for doc in used_documents(folder):
+        path = folder / "pdfs" / f"{doc['doc_name']}.pdf"
+        if path.exists():
+            continue
+        r = requests.get(PDF_URL.format(doc["doc_name"]), timeout=120)
+        r.raise_for_status()
+        path.write_bytes(r.content)
+        print(f"{path.name}: {len(r.content) // 1024} KB", flush=True)
 
 
 def page_texts(pdf: Path) -> list[str]:
@@ -104,9 +126,7 @@ RETURNING report_id
 
 def load(conn, folder: Path = FINANCEBENCH) -> None:
     init_db(conn)
-    docs = [json.loads(line) for line in (folder / "financebench_document_information.jsonl").open()]
-    used = {json.loads(line)["doc_name"] for line in (folder / "financebench_open_source.jsonl").open()}
-    for doc in sorted((d for d in docs if d["doc_name"] in used), key=lambda d: d["doc_name"]):
+    for doc in used_documents(folder):
         row = document_row(doc)
         if not conn.execute("SELECT 1 FROM companies WHERE company_id = %s", (row["company_id"],)).fetchone():
             print(f"skip {doc['doc_name']}: company {row['company_id']} is not in the database")
@@ -128,6 +148,10 @@ def load(conn, folder: Path = FINANCEBENCH) -> None:
 
 if __name__ == "__main__":
     load_dotenv()
-    argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter).parse_args()
-    with connect() as conn:
-        load(conn)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--download", action="store_true", help="only download the PDFs")
+    if parser.parse_args().download:
+        download()
+    else:
+        with connect() as conn:
+            load(conn)
