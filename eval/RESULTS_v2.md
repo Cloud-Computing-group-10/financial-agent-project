@@ -39,16 +39,22 @@ Haiku: all 150 questions. Qwen: a fixed random sample of 50 (seed 0), the same f
 | System | Model | n | Accuracy | Declined, should | Declined, should not | Median s | Tokens in / out | Cost / 1,000 q |
 |---|---|---|---|---|---|---|---|---|
 | A workflow | Haiku 5.5 (API) | 150 | **104/150** (69%) | 0/0 | 26/150 | 12.0 | 6,384 / 652 | $0.96 |
-| A workflow | Qwen2.5-7B (Mac, mlx) | 25 | **4/25** (16%) | 0/0 | 14/25 | 24.4 | 4,770 / 284 | $0 (local) |
+| A workflow | Qwen2.5-3B (Mac, mlx) | 50 | **8/50** (16%) | 0/0 | 18/50 | 14.7 | 4,768 / 691 | $0 (local) |
+| A workflow | Qwen2.5-7B (Mac, mlx) | 50 | **6/50** (12%) | 0/0 | 29/50 | 21.9 | 4,511 / 250 | $0 (local) |
 | C simple RAG | Haiku 5.5 (API) | 150 | **84/150** (56%) | 0/0 | 38/150 | 10.7 | 4,043 / 576 | $0.69 |
+| C simple RAG | Qwen2.5-3B (Mac, mlx) | 50 | **12/50** (24%) | 0/0 | 14/50 | 15.1 | 3,033 / 536 | $0 (local) |
+| C simple RAG | Qwen2.5-7B (Mac, mlx) | 50 | **11/50** (22%) | 0/0 | 16/50 | 18.6 | 3,033 / 162 | $0 (local) |
 
 Accuracy per category:
 
 | System | Model | domain-relevant | metrics-generated | novel-generated |
 |---|---|---|---|---|
 | A workflow | Haiku 5.5 (API) | 29/50 | 34/50 | 41/50 |
-| A workflow | Qwen2.5-7B (Mac, mlx) | 2/9 | 0/7 | 2/9 |
+| A workflow | Qwen2.5-3B (Mac, mlx) | 2/14 | 0/15 | 6/21 |
+| A workflow | Qwen2.5-7B (Mac, mlx) | 2/14 | 0/15 | 4/21 |
 | C simple RAG | Haiku 5.5 (API) | 24/50 | 27/50 | 33/50 |
+| C simple RAG | Qwen2.5-3B (Mac, mlx) | 4/14 | 1/15 | 7/21 |
+| C simple RAG | Qwen2.5-7B (Mac, mlx) | 5/14 | 1/15 | 5/21 |
 
 ## Answer writer (A vs A0)
 
