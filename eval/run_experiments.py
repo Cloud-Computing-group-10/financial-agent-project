@@ -91,6 +91,7 @@ def run(set_name: str, system: str, split: str | None, limit: int | None) -> Non
                "answer": res.get("answer", ""), "route": res.get("trace", {}).get("route"),
                "flags": res.get("flags", []), "citations": [c.get("text", "")[:300] for c in res.get("citations", [])],
                "writer": res.get("trace", {}).get("writer"),
+               "timings": res.get("trace", {}).get("timings"),
                "latency_s": res.get("latency_s"), "input_tokens": u.get("input_tokens", 0),
                "output_tokens": u.get("output_tokens", 0), "llm_calls": u.get("llm_calls", 0)}
         with path.open("a") as f:

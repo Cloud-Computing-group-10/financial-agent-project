@@ -2,7 +2,7 @@
 
 Default from the environment: FINQA_LLM (a preset name) and FINQA_MODEL (model override).
 Switch at runtime with configure(llm, model), the CLI/eval flags --llm/--model, or the API's
-"llm"/"model" fields. Presets: claude, chatgpt, hkust, qwen (= mlx Qwen2.5-7B), qwen-14b, mlx, ollama, openai.
+"llm"/"model" fields. Presets: claude, chatgpt, hkust, qwen (= mlx Qwen2.5-7B), qwen-3b, qwen-14b, mlx, ollama, openai.
 
   claude   (default)  Anthropic API, model FINQA_MODEL (default claude-opus-5-5).
                       Schema enforced server-side via structured outputs.
@@ -37,9 +37,11 @@ PRESETS = {
     "claude": ("claude", LLM_MODEL),
     "mlx": ("mlx", "mlx-community/Qwen2.5-7B-Instruct-4bit"),
     "qwen": ("mlx", "mlx-community/Qwen2.5-7B-Instruct-4bit"),        # local, Apple Silicon
+    "qwen-3b": ("mlx", "mlx-community/Qwen2.5-3B-Instruct-4bit"),
     "qwen-14b": ("mlx", "mlx-community/Qwen2.5-14B-Instruct-4bit"),
     "openai": ("openai", "qwen2.5:7b-instruct"),                     # e.g. Ollama
     "ollama": ("openai", "qwen2.5:7b-instruct"),
+    "ollama-3b": ("openai", "qwen2.5:3b-instruct"),
     "chatgpt": ("openai", "gpt-4.1"),                                # OpenAI API
     "hkust": ("openai", "gpt-4o-mini"),                              # HKUST GenAI gateway (free for students)
 }
@@ -244,7 +246,8 @@ def _extract_json(raw: str) -> str:
     start, end = raw.find("{"), raw.rfind("}")
     if start < 0 or end <= start:
         raise ValueError("no JSON object in model output")
-    return raw[start:end + 1]
+    # Small models copy the passage tag into id lists: [C2101, C2093] -> [2101, 2093]
+    return re.sub(r"(?<=[\[,\s])C(\d+)(?=\s*[,\]])", r"\1", raw[start:end + 1])
 
 
 def _local_chat(name, system, user, usage, max_tokens, json_mode: bool = False) -> str:

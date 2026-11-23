@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from . import llm
 from .search import search
+from .timing import timed
 
 TOP_K = 10  # statements are spread over several page pieces, so more passages than for "why" questions
 
@@ -91,7 +92,7 @@ def answer_from_document(conn, question: str, report_id: int, usage: llm.Usage, 
     """{"status", "text", "citations", "flags"} for one filing. search_terms (from the parse step)
     are the words a filing uses; long questions with instructions retrieve poorly on their own."""
     query = f"{search_terms}\n{question}" if search_terms else question
-    passages = search(conn, query, [report_id], method=method, k=TOP_K)
+    passages = search(conn, query, [report_id], method=method, k=TOP_K, trace=trace)
     trace["docqa"] = {"report_id": report_id, "method": method, "query": query[:300],
                       "top_scores": [p["score"] for p in passages]}
     if not passages:
@@ -99,7 +100,8 @@ def answer_from_document(conn, question: str, report_id: int, usage: llm.Usage, 
 
     by_id = {p["chunk_id"]: p for p in passages}
     context = "\n\n".join(f"[C{p['chunk_id']}] ({p['section']} › {p['heading']})\n{p['text']}" for p in passages)
-    out = llm.parse("docqa", SYSTEM, f"Question: {question}\n\nPassages:\n{context}", DocAnswer, usage, max_tokens=3000)
+    with timed(trace, "llm_answer"):
+        out = llm.parse("docqa", SYSTEM, f"Question: {question}\n\nPassages:\n{context}", DocAnswer, usage, max_tokens=3000)
     if not out.answerable:
         return {"status": "abstain", "text": "The filing passages do not answer this question.", "citations": [], "flags": []}
 

@@ -325,8 +325,10 @@ Choose the model with `--llm` (and optionally `--model`) on the CLI and the eval
 | hkust | HKUST GenAI gateway (key in HKUST_API_KEY, free for students) | gpt-4o-mini |
 | chatgpt | OpenAI API (key in OPENAI_API_KEY) | gpt-4.1 |
 | qwen / mlx | your Mac (mlx-lm) | mlx-community/Qwen2.5-7B-Instruct-4bit |
+| qwen-3b | your Mac (mlx-lm) | mlx-community/Qwen2.5-3B-Instruct-4bit |
 | qwen-14b | your Mac (mlx-lm) | mlx-community/Qwen2.5-14B-Instruct-4bit |
-| ollama / openai | an OpenAI-compatible server | qwen2.5:7b-instruct |
+| ollama / openai | an OpenAI-compatible server, e.g. the `ollama` service in docker-compose.yml (CPU) | qwen2.5:7b-instruct |
+| ollama-3b | the same server | qwen2.5:3b-instruct |
 
 Example: `--llm claude --model claude-sonnet-5-5`. You can also set `FINQA_LLM` and `FINQA_MODEL` as environment variables.
 
@@ -392,7 +394,7 @@ All 60 are verified.
 The systems, as in the experiment plan (design plan 16.2):
 - **A** our workflow (`finqa.workflow.answer`)
 - **A0** the same workflow with the template answer instead of the LLM-written one (ablation: what the writer costs in tokens and latency, and whether it ever loses a number)
-- **B** the whole correct filing + the question (`finqa/baseline.py`)
+- **B** the whole correct filing + the question (`finqa/baseline.py`). Built, but left out of the main runs: it mostly measures how many tokens fit into a context window, and it is the expensive cell.
 - **C** the top 10 passages of the correct filing (same index and hybrid search as document QA) + the question, with no parsing, routing, code arithmetic or checks (`finqa/rag_baseline.py`)
 
 B and C always get the correct filing, which favours them.
@@ -423,6 +425,16 @@ Options: `--split test|dev`, `--limit N`. Every answer is appended to `eval/resu
 - **Should-decline questions:** system A must return abstain or clarify. For B and C, the grader decides whether the answer declines.
 
 `summary` prints per system and model: accuracy, declines where they were expected, declines where they were not, median latency and tokens, then accuracy per category.
+
+Every result row also stores the step timings of system A (`timings`: llm_parse, sql_company, sql_filing, sql_figures, search_embed, search_db, search_rank, llm_explain / llm_answer, llm_writer), for the latency breakdown.
+
+### 8.4b Retrieval experiment (no LLM)
+
+```bash
+.venv/bin/python eval/retrieval_eval.py
+```
+
+BM25 vs semantic vs hybrid search over the correct filing. On the v2 "why" questions a hit is a passage containing an evidence phrase (searched in MD&A, the workflow's first round, and in the whole filing). On FinanceBench a hit is a passage from one of the question's evidence pages. It reports hit@1/3/5/10, MRR@10 and search time, and prints the top scores of the dev questions to calibrate `THRESHOLDS`. `--terms` adds the parser's search terms to the query (one LLM call per question).
 
 ### 8.5 MVP evaluation (13 Nov, 25 numeric questions)
 

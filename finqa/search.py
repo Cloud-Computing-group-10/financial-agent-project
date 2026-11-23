@@ -12,6 +12,7 @@ from rank_bm25 import BM25Okapi
 
 from .config import MDA_SECTION
 from .embed import embed, passage_text
+from .timing import timed
 
 METHODS = ("semantic", "bm25", "hybrid")
 MDA = MDA_SECTION
@@ -37,28 +38,32 @@ def tokenize(text: str) -> list[str]:
 
 
 def search(conn, query: str, report_ids: list[int], method: str = "semantic", k: int = 5,
-           section: str | None = None) -> list[dict]:
+           section: str | None = None, trace: dict | None = None) -> list[dict]:
     """Top-k passages from the given filings, each with its score and source metadata.
 
-    section: optional filter on the section label, e.g. MDA."""
-    rows = conn.execute(SQL_CANDIDATES, {
-        "query_vector": embed([query])[0],
-        "report_ids": report_ids,
-        "section": f"%{section}%" if section else "%",
-    }).fetchall()
+    section: optional filter on the section label, e.g. MDA. trace: gets the step timings."""
+    trace = trace if trace is not None else {}
+    with timed(trace, "search_embed"):
+        query_vector = embed([query])[0]
+    with timed(trace, "search_db"):
+        rows = conn.execute(SQL_CANDIDATES, {
+            "query_vector": query_vector,
+            "report_ids": report_ids,
+            "section": f"%{section}%" if section else "%",
+        }).fetchall()
     if not rows:
         return []
 
-    if method == "semantic":
-        scores = [r["similarity"] for r in rows]
-    elif method == "bm25":
-        scores = _bm25_scores(query, rows)
-    elif method == "hybrid":
-        scores = _rrf_scores([r["similarity"] for r in rows], _bm25_scores(query, rows))
-    else:
-        raise ValueError(f"unknown search method {method!r}, choose from {METHODS}")
-
-    ranked = sorted(zip(rows, scores), key=lambda pair: -pair[1])[:k]
+    with timed(trace, "search_rank"):
+        if method == "semantic":
+            scores = [r["similarity"] for r in rows]
+        elif method == "bm25":
+            scores = _bm25_scores(query, rows)
+        elif method == "hybrid":
+            scores = _rrf_scores([r["similarity"] for r in rows], _bm25_scores(query, rows))
+        else:
+            raise ValueError(f"unknown search method {method!r}, choose from {METHODS}")
+        ranked = sorted(zip(rows, scores), key=lambda pair: -pair[1])[:k]
     return [{**row, "score": round(float(score), 4), "method": method, "locator": locator(row)}
             for row, score in ranked]
 

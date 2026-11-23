@@ -15,6 +15,7 @@ from .companies import find_companies
 from .config import MAX_ROUNDS, METRICS, MIN_PASSAGES, THRESHOLDS, TOP_K
 from .db import connect
 from .docqa import answer_from_document
+from .timing import timed
 from .writer import write
 from .parse import ParsedQuestion, parse_question
 from .search import MDA, search
@@ -202,7 +203,7 @@ def retrieve(conn, q: str, p: ParsedQuestion, report_id: int, method: str, trace
     passages: list[dict] = []
     for rnd in range(1, MAX_ROUNDS + 1):
         section = MDA if rnd == 1 else None
-        hits = search(conn, query, [report_id], method=method, k=TOP_K, section=section)
+        hits = search(conn, query, [report_id], method=method, k=TOP_K, section=section, trace=trace)
         trace.setdefault("search_rounds", []).append(
             {"round": rnd, "query": query, "section": section or "all", "method": method,
              "top_scores": [h["score"] for h in hits]})
@@ -296,7 +297,8 @@ def answer(question: str, method: str = "semantic", document: str | None = None,
 
     # 1. parse (LLM + code validation). An LLM failure is reported, not silently replaced.
     try:
-        p = parse_question(question, usage)
+        with timed(trace, "llm_parse"):
+            p = parse_question(question, usage)
     except Exception as e:
         usage.log.append({"step": "parse", "error": str(e)[:300]})
         return done("error", f"LLM call failed ({llm.model_name()}): {str(e)[:200]}")
@@ -309,7 +311,8 @@ def answer(question: str, method: str = "semantic", document: str | None = None,
     else:
         if not p.company:
             return done("clarify", "Which company do you mean? Please name it or give its ticker.")
-        matches = find_companies(conn, p.company)
+        with timed(trace, "sql_company"):
+            matches = find_companies(conn, p.company)
         trace["company_matches"] = [{"company_id": m["company_id"], "name": m["name"], "ticker": m["ticker"]}
                                     for m in matches]
         if not matches:
@@ -320,13 +323,15 @@ def answer(question: str, method: str = "semantic", document: str | None = None,
         company = matches[0]
         need_text = p.qtype in ("explanatory", "both") or not structured(p)
         if not p.period or p.period == "latest":
-            doc = conn.execute(SQL_LATEST_DOC, {"company_id": company["company_id"], "need_text": need_text}).fetchone()
+            with timed(trace, "sql_filing"):
+                doc = conn.execute(SQL_LATEST_DOC, {"company_id": company["company_id"], "need_text": need_text}).fetchone()
             if not doc:
                 return done("abstain", "No filings available for this company.")
             res["assumptions"].append(
                 f"No period given; assumed the latest available quarter ({doc['period']}, filed {doc['filed']}).")
         else:
-            doc = conn.execute(SQL_DOC_FOR_PERIOD, {"company_id": company["company_id"], "period": p.period}).fetchone()
+            with timed(trace, "sql_filing"):
+                doc = conn.execute(SQL_DOC_FOR_PERIOD, {"company_id": company["company_id"], "period": p.period}).fetchone()
             if not doc:
                 why = f" ({p.unsupported_reason})" if p.unsupported_reason else ""
                 return done("abstain", f"Not enough evidence: no filing of {company['name']} for {p.period} is loaded{why}.")
@@ -359,7 +364,8 @@ def answer(question: str, method: str = "semantic", document: str | None = None,
     # 3a. numeric
     num = None
     if "numeric" in route:
-        num = numeric_path(conn, p, company, period, trace)
+        with timed(trace, "sql_figures"):
+            num = numeric_path(conn, p, company, period, trace)
         res["flags"] += num["flags"]
         for i, f in enumerate(num["figures"], 1):
             res["figures"].append({"ref": f"F{i}", "value": f["value"], "unit": f["unit"], "period": f["period"],
@@ -387,7 +393,8 @@ def answer(question: str, method: str = "semantic", document: str | None = None,
                 return done("partial", " ".join(parts) + "\n\n" + msg)
             return done("abstain", msg)
         try:
-            claims = compose_explanation(question, passages, num, usage)
+            with timed(trace, "llm_explain"):
+                claims = compose_explanation(question, passages, num, usage)
         except Exception as e:
             usage.log.append({"step": "explain", "error": str(e)[:300]})
             return done("error", (" ".join(parts) + "\n\n" if parts else "") + f"LLM call failed: {str(e)[:200]}")
@@ -411,7 +418,8 @@ def answer(question: str, method: str = "semantic", document: str | None = None,
     text = "\n\n".join(parts)
     res["answer_template"] = text
     if writer:
-        text = write(question, facts_for_writer(res, company), usage, trace) or text
+        with timed(trace, "llm_writer"):
+            text = write(question, facts_for_writer(res, company), usage, trace) or text
     return done("answered", text)
 
 

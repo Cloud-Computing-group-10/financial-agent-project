@@ -28,6 +28,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://finqa:finqa@db:5432/finqa
+      FINQA_OPENAI_URL: http://ollama:11434/v1   # local LLM server, if started (profile "ollama")
+      FINQA_LOCAL_CONTEXT: "16384"               # = OLLAMA_CONTEXT_LENGTH below; longer prompts are refused, not cut
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:
@@ -46,5 +48,16 @@ services:
     depends_on:
       - api
 
+  # Optional: Qwen on this machine's CPU (no API).  docker compose --profile ollama up -d ollama
+  # then pull a model once:  docker compose exec ollama ollama pull qwen2.5:3b-instruct
+  ollama:
+    image: ollama/ollama:0.6.2
+    profiles: ["ollama"]
+    environment:
+      OLLAMA_CONTEXT_LENGTH: "16384"   # default is 2048, which would cut the prompts of document QA
+    volumes:
+      - ollama:/root/.ollama
+
 volumes:
   pgdata:
+  ollama:

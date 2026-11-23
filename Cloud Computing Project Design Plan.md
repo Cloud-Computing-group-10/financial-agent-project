@@ -370,3 +370,18 @@ Replaces the deployment parts of section 17 (Learner Lab, EMR). The cloud is a n
 3. **Cost.** One more call: numeric questions now use 2 calls (about 1,500 input tokens instead of 1,000 with Haiku), "why" questions 3. First checks: about 1-2 s more per answer, all numbers kept.
 4. **Ablation A0.** The same workflow with the template answer. A vs A0 measures the writer's cost (tokens, latency) and its rejection rate, i.e. how often it would have changed or invented a number without the check.
 
+## **21\. Revised experiment plan (23 November)**
+
+Replaces the run plan of section 16 where they differ. Baseline B (whole filing) is built but not part of the main runs: it mostly measures context size and is the expensive cell. The focus is small local models and the pipeline itself.
+
+| # | Experiment | Measures |
+| :---- | :---- | :---- |
+| E1 | Accuracy: systems A, A0 (template answer), C (simple RAG) x Qwen2.5-3B, Qwen2.5-7B (local, mlx) and Haiku (hosted reference), on v2 test (50) and FinanceBench (150) | accuracy per category, declines, hallucinated answers, writer rejection rate |
+| E2 | Retrieval: BM25 / semantic / hybrid, no LLM (`eval/retrieval_eval.py`) | hit@k and MRR against evidence phrases (v2) and evidence pages (FinanceBench); threshold calibration on dev |
+| E3 | Latency breakdown per step (`trace.timings`) | LLM time vs pipeline time (SQL, embedding, search) |
+| E4 | Instance types: t3.large, c7i.xlarge, c7i.8xlarge; API load test with 1/10/50 users | latency, throughput, cost per 1,000 questions |
+| E5 | Scalability: Spark text and facts jobs on 1-32 cores; search time vs database size | speedup, passages per second |
+| E6 | Self-hosted LLM: Qwen 3B via Ollama on the EC2 CPU | whether a deployment without any API is usable, and its latency |
+
+Local models need two robustness fixes found in the first checks: they copy the passage tag into id lists (`[C2101]`, repaired before validation), and Qwen-3B often writes answers without references, which the writer check rejects (the template answer is used; counted as the writer rejection rate).
+

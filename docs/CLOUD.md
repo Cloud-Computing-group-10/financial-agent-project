@@ -126,7 +126,24 @@ The same tunnel lets you query the cloud database from the laptop, e.g. to run t
 not open to the internet.
 
 
-## 7. Serve the app
+## 7. Qwen on the instance's CPU (optional, plan E6)
+
+A fully self-hosted setup without any LLM API: Ollama serves Qwen on the CPU (no GPU needed).
+
+```bash
+docker compose --profile ollama up -d ollama
+```
+
+```bash
+docker compose exec ollama ollama pull qwen2.5:3b-instruct
+```
+
+The API container reaches it at `http://ollama:11434/v1`; use the preset `ollama-3b` (or `ollama` for
+the 7B model after pulling `qwen2.5:7b-instruct`). The context is set to 16k tokens in
+docker-compose.yml, so document QA prompts are not cut.
+
+
+## 8. Serve the app
 
 ```bash
 docker compose up -d
