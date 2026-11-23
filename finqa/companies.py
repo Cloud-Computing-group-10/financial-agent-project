@@ -9,6 +9,7 @@ from .config import COMPANY_ALIASES
 from .facts import name_key
 
 MAX_CANDIDATES = 5
+DOMINANT = 4  # filings ratio at which the larger listed namesake is taken without asking
 
 SQL_BY_TICKER = "SELECT * FROM companies WHERE lower(ticker) = lower(%(ticker)s)"
 SQL_BY_NAME = "SELECT * FROM companies WHERE name_key = %(key)s"
@@ -40,9 +41,13 @@ def find_companies(conn, mention: str) -> list[dict]:
     if rows:
         return rows
     rows = conn.execute(SQL_BY_NAME_PREFIX, {"prefix": key + " %", "limit": MAX_CANDIDATES}).fetchall()
-    # One filer with a ticker beats unlisted namesakes (old shells, subsidiaries).
+    # One filer with a ticker beats unlisted namesakes (old shells, subsidiaries), and a listed
+    # filer with far more 10-Qs beats a new listing of the same name ("Honeywell": Honeywell
+    # International, 24 filings, not Honeywell Aerospace, 2). Otherwise the user is asked.
     listed = [r for r in rows if r["ticker"]]
-    return listed[:1] if len(listed) == 1 else rows
+    if len(listed) == 1 or (len(listed) > 1 and listed[0]["n_filings"] >= DOMINANT * max(listed[1]["n_filings"], 1)):
+        return listed[:1]
+    return rows
 
 
 def company_by_ticker(conn, ticker: str) -> dict | None:

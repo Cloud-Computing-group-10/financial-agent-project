@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-JUDGE_MODEL = os.environ.get("FINQA_JUDGE_MODEL", "claude-opus-5-5")
+JUDGE_MODEL = os.environ.get("FINQA_JUDGE_MODEL", "claude-haiku-5-5")  # cheap; agreement checked with a stronger model on a sample
 
 SYSTEM = """You grade an answer to a question about a company's SEC filing against a reference.
 - correct: the answer states the reference's key facts or reasons (wording may differ; numbers may be

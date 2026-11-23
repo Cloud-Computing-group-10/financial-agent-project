@@ -14,7 +14,8 @@ B and C always get the correct filing (from the answer key / FinanceBench), whic
 Every answer is appended to eval/results/<set>/<system>__<model>.jsonl as soon as it is done, so a
 stopped run resumes without paying twice. Grading is a separate step:
   * numbers (v2 lookup/change/paraphrase/latest): the gold value must appear in the answer text,
-    to the precision the answer states; for changes, the percentage too (+-0.15 points).
+    to the precision the answer states; for a change, the percentage (+-0.15 points) and either the
+    new value or the absolute change.
   * v2 "why" and every FinanceBench answer: an LLM grader (eval/judge.py) compares the answer with
     the gold reason / answer and labels it correct, incorrect or declined.
   * v2 "decline" questions: system A must return abstain/clarify; for B and C the grader decides
@@ -134,9 +135,10 @@ def grade_row(q: dict, row: dict, judge) -> dict:
     if declined_status:
         return {"verdict": "declined", "correct": False}
     if cat in NUMERIC:
-        ok = gold.get("value") is not None and value_in(text, gold["value"])
-        if gold.get("pct_change") is not None:
-            ok = ok and pct_in(text, gold["pct_change"])
+        if gold.get("pct_change") is not None:  # a change: the % plus the new value or the change itself
+            ok = pct_in(text, gold["pct_change"]) and (value_in(text, gold["value"]) or value_in(text, gold["abs_change"]))
+        else:
+            ok = gold.get("value") is not None and value_in(text, gold["value"])
         return {"verdict": "correct" if ok else "incorrect", "correct": ok}
     reference = gold["reason"] if "reason" in gold else f"{gold['answer']}\nJustification: {gold['justification']}"
     v = judge.grade(q["question"], reference, text)
@@ -156,8 +158,48 @@ def grade(set_name: str) -> None:
         new = [r for r in rows if r["id"] not in graded]
         for r in new:
             graded[r["id"]] = {**r, **grade_row(qs[r["id"]], r, judge)}
+        for r in rows:  # number grades are code: recompute them so a rule change applies everywhere
+            if r["id"] in graded and qs[r["id"]]["category"] in NUMERIC and qs[r["id"]].get("expect") not in ("decline", "clarify"):
+                graded[r["id"]] = {**r, **grade_row(qs[r["id"]], r, judge)}
         out.write_text("".join(json.dumps(graded[r["id"]]) + "\n" for r in rows if r["id"] in graded))
         print(f"{path.name}: graded {len(new)} new answers")
+
+
+def agreement(set_names: list[str], model: str, n: int = 60, seed: int = 0) -> None:
+    """Regrade a random sample of LLM-graded answers with a stronger model; print the agreement and
+    write the sample (question, reference, answer, both grades) for a person to check by hand."""
+    import csv
+    import random
+    from judge import Judge
+    strong = Judge(model)
+    pool = []
+    for set_name in set_names:
+        qs = {q["id"]: q for q in questions(set_name)}
+        for path in sorted((RESULTS / set_name).glob("graded_*.jsonl")):
+            for r in load(path):
+                if "reason" in r:  # graded by the LLM grader
+                    pool.append((set_name, qs[r["id"]], r))
+    sample = random.Random(seed).sample(pool, min(n, len(pool)))
+    rows, same = [], 0
+    for set_name, q, r in sample:
+        gold = q["gold"]
+        if q.get("expect") in ("decline", "clarify"):
+            reference = f"The question must be declined: {gold['decline_reason']}."
+        elif "reason" in gold:
+            reference = gold["reason"]
+        else:
+            reference = f"{gold['answer']}\nJustification: {gold['justification']}"
+        v = strong.grade(q["question"], reference, r["answer"])
+        same += v["verdict"] == r["verdict"]
+        rows.append({"set": set_name, "id": r["id"], "system": r["system"], "model": r["model"],
+                     "question": q["question"], "reference": reference, "answer": r["answer"],
+                     "grader": r["verdict"], "strong_grader": v["verdict"], "human": ""})
+    out = RESULTS / "grader_check.csv"
+    with out.open("w", newline="") as f:
+        writer = csv.DictWriter(f, list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"grader vs {model}: {same}/{len(rows)} agree -> {out} (fill in the 'human' column)")
 
 
 # ---------------------------------------------------------------------------- summary
@@ -190,7 +232,7 @@ def summary(set_name: str) -> None:
 def main() -> None:
     load_dotenv(HERE.parent / ".env")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("step", choices=["run", "grade", "summary"])
+    ap.add_argument("step", choices=["run", "grade", "summary", "agreement"])
     ap.add_argument("--set", default="v2", choices=["v2", "financebench"])
     ap.add_argument("--system", choices=["A", "A0", "B", "C"])
     ap.add_argument("--llm", help="LLM preset (claude, hkust, qwen, ...)")
@@ -204,6 +246,8 @@ def main() -> None:
         run(args.set, args.system, args.split, args.limit)
     elif args.step == "grade":
         grade(args.set)
+    elif args.step == "agreement":
+        agreement(["v2", "financebench"], args.model or "claude-sonnet-5-5")
     else:
         summary(args.set)
 

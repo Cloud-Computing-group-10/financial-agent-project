@@ -97,3 +97,13 @@ def test_writer_answer_with_a_changed_number_is_rejected(loaded, monkeypatch):
     assert "numbers not in the facts" in res["trace"]["writer"]["problems"][0]
     res = ask(monkeypatch, YOY, writer_reply="Acme's revenue was $120 [F7].")
     assert "unknown references" in res["trace"]["writer"]["problems"][0]
+
+
+def test_a_dominant_listed_namesake_wins(conn):
+    db.load_facts(conn, extract_company(FACTS, ticker="AWI"))
+    db.load_facts(conn, other_company(7, "ACME AEROSPACE INC", ticker="AAI"))
+    assert len(find_companies(conn, "Acme")) == 2           # two listed namesakes, 2 filings each: ask
+    for i in range(6):                                        # ACME gets 8 filings, 4x as many
+        conn.execute("""INSERT INTO documents (company_id, accession, form_type, title, filed, period, period_end)
+                        VALUES (1, %s, '10-Q', 't', '2020-01-01', 'Q1 2020', '2020-03-31')""", (f"x-{i}",))
+    assert [c["company_id"] for c in find_companies(conn, "Acme")] == [1]
