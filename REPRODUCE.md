@@ -267,7 +267,11 @@ via mlx), `--llm qwen-3b` (Qwen2.5-3B via mlx).
 **[laptop]** Our question set, test split (50 questions), all 9 combinations:
 
 ```bash
-for m in "claude --model claude-haiku-5-5" "qwen" "qwen-3b"; do for s in A A0 C; do .venv/bin/python eval/run_experiments.py run --set v2 --split test --system $s --llm $m; done; done
+for s in A A0 C; do .venv/bin/python eval/run_experiments.py run --set v2 --split test --system $s --llm claude --model claude-haiku-5-5; done
+```
+
+```bash
+for m in qwen qwen-3b; do for s in A A0 C; do .venv/bin/python eval/run_experiments.py run --set v2 --split test --system $s --llm $m; done; done
 ```
 
 **[laptop]** FinanceBench with Haiku, all 150 questions:
@@ -304,10 +308,14 @@ Then copy the result file to the laptop so it is graded with the others:
 rsync -av -e "ssh -i ~/.ssh/finqa.pem" "ubuntu@<host>:financial-agent-project/eval/results/v2/A__openai_qwen2.5_3b-instruct.jsonl" eval/results/v2/
 ```
 
-**[laptop]** Closed-book baseline N (added after the main runs; not run yet). It needs no database, so neither the instance nor the tunnel. Our test set with all three models, then FinanceBench (Haiku on all 150, Qwen on the same 50-question sample):
+**[laptop]** Closed-book baseline N (added after the main runs). It needs no database, so neither the instance nor the tunnel. Our test set with all three models, then FinanceBench (Haiku on all 150, Qwen on the same 50-question sample):
 
 ```bash
-for m in "claude --model claude-haiku-5-5" "qwen" "qwen-3b"; do .venv/bin/python eval/run_experiments.py run --set v2 --split test --system N --llm $m; done
+.venv/bin/python eval/run_experiments.py run --set v2 --split test --system N --llm claude --model claude-haiku-5-5
+```
+
+```bash
+for m in qwen qwen-3b; do .venv/bin/python eval/run_experiments.py run --set v2 --split test --system N --llm $m; done
 ```
 
 ```bash

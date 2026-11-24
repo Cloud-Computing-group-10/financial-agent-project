@@ -1,0 +1,70 @@
+\section{Experiments}
+
+We ran five experiments (\cref{tab:experiments}). E1 measures answer quality, E2 the search alone,
+and E3--E5 the cloud side.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{llX}
+\toprule
+ & Experiment & What we measure \\
+\midrule
+E1 & Accuracy & Systems A, A0, C and N with Haiku 5.5, Qwen2.5-7B and Qwen2.5-3B, on our question set
+              and on FinanceBench: accuracy, wrong declines, tokens and cost \\
+E2 & Retrieval & BM25, semantic and hybrid search without an LLM: does the right passage come first? \\
+E3 & Latency per step & Time of each step on the server, with Qwen2.5-3B on the CPU \\
+E4 & Load test & Questions per second and latency of the pipeline (without the LLM) for 1, 10 and 50
+              concurrent users \\
+E5 & Spark scaling & Run time of both Spark jobs with 1 to 32 cores \\
+\bottomrule
+\end{tabularx}
+\caption{Experiments.}
+\label{tab:experiments}
+\end{table}
+
+\subsection{Question sets}
+
+\paragraph{Our question set.} We wrote 60 questions about ten large companies: 3M, Coca-Cola,
+Johnson \& Johnson, Caterpillar and Honeywell (2023 filings), and PepsiCo, Tesla, Abbott, IBM and
+Lockheed Martin (2024 filings). 50 are the test set and 10 are a development set that we only used to
+set the search threshold. The test set has six categories:
+\begin{itemize}
+  \item \emph{lookup} (10): one figure for one quarter, for example ``What was Tesla's gross profit
+        in Q3 2024?'';
+  \item \emph{change} (10): the year-over-year change of a figure;
+  \item \emph{paraphrase} (8): the same kinds of questions in everyday words (``How much cash did
+        Caterpillar generate from operations\ldots'');
+  \item \emph{why} (12): the reasons for a change, from the MD\&A;
+  \item \emph{decline} (8): questions the system should refuse, such as future results, stock price
+        moves or 10-K data;
+  \item \emph{latest} (2): ``the most recent quarter''.
+\end{itemize}
+The answer key was checked against the filings themselves, not against our database: every number
+was found in a labelled row of the 10-Q's own statement table, every change with its prior-year
+column, and every ``why'' answer has evidence phrases that appear in the filing. All 60 answers
+passed this check.
+
+\paragraph{FinanceBench.} The 150 public questions of FinanceBench~\cite{financebench}, written by
+analysts about 84 filings (mostly 10-Ks). They are in three types of 50: \emph{metrics-generated}
+(calculations such as a ratio), \emph{domain-relevant} (questions an analyst would ask, often needing
+judgement) and \emph{novel-generated} (other questions). As in the benchmark's single-document
+setting, every system is given the correct filing. Haiku answers all 150 questions; the local models
+answer a fixed random sample of 50 (seed 0), the same 50 for every system, because they are slow.
+
+\subsection{Grading}
+
+Numbers are graded by code. An answer is correct if it states the gold value to the precision it
+gives (so ``\$8.3 billion'' is correct for \$8,325 million). A change must give the percentage within
+0.15 points and also the new value or the dollar change. Free-text answers (``why'' questions and
+FinanceBench) and decline questions are graded by an LLM grader (Claude Haiku 5.5) that compares the
+answer with the gold answer. To check the grader we had a stronger model (Claude Sonnet 5.5) grade a
+sample of 60 answers again: the two agreed on 54 of 60 (90\%). The sample is saved for a check by a
+person, which is still to do. For the closed-book system N, an answer to a number question that says
+it does not know is counted as a decline, not as a wrong answer.
+
+\subsection{Models and setup}
+
+The hosted model is Claude Haiku 5.5. The local models are Qwen2.5-7B and Qwen2.5-3B in 4-bit, run
+with mlx on a MacBook (Apple GPU), connected to the database on EC2 through an SSH tunnel. For E3 we
+also ran Qwen2.5-3B with Ollama on the CPU of the EC2 instance, so that all steps run on one machine
+without any API. E3, E4 and E5 ran on the c7i.8xlarge instance.

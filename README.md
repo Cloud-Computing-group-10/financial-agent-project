@@ -401,7 +401,7 @@ The systems, as in the experiment plan (design plan 16.2):
 - **A** our workflow (`finqa.workflow.answer`)
 - **A0** the same workflow with the template answer instead of the LLM-written one (ablation: what the writer costs in tokens and latency, and whether it ever loses a number)
 - **C** the top 10 passages of the correct filing (same index and hybrid search as document QA) + the question, with no parsing, routing, code arithmetic or checks (`finqa/rag_baseline.py`)
-- **N** closed book: only the question, no filing and no retrieval (`finqa/closed_book.py`). It shows what the model knows from its training data alone, and so why retrieval is needed: it can't know filings after its cutoff and can't cite a filing it never saw. Added after the main runs; not run yet.
+- **N** closed book: only the question, no filing and no retrieval (`finqa/closed_book.py`). It shows what the model knows from its training data alone, and so why retrieval is needed: it can't know filings after its cutoff and can't cite a filing it never saw. Results are in `eval/RESULTS_v2.md` (Haiku: 30% on our test set, 23% on FinanceBench).
 
 C always gets the correct filing, which favours it. (The plan also had a baseline B, the whole filing plus the question. It was dropped: it is the expensive cell and mostly measures how many tokens fit into a context window.)
 

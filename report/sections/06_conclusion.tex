@@ -1,0 +1,30 @@
+\section{Conclusion}
+
+We built a question-answering agent over SEC filings in which the LLM only reads the question and
+phrases the answer, while SQL, search and code find every number, compute every change and check
+every citation. On AWS, a Spark pipeline on one EC2 instance loaded the figures and 10-Q text of
+every SEC filer since 2019: 9,695 companies, 140,436 10-Qs, 3.0 million figures and 4.55 million
+passages, for about \$20.
+
+The experiments show three things. First, the workflow is much more accurate than simple RAG on
+quarterly numbers (96\% against 70\% with Claude Haiku 5.5), and the gap is largest for small local
+models (84\% against 38\% with Qwen2.5-7B on a laptop). A closed-book baseline confirms that
+retrieval is needed at all: without it Haiku answers only 30\% of our questions and 23\% of
+FinanceBench, with no source a reader can check. Second, on the external FinanceBench
+benchmark the workflow is ahead of simple RAG in every question type with Haiku (69\% against 56\%)
+and gives fewer wrong answers, but its structured answer format is too demanding for small models.
+Third, our own layer is fast (about 10 ms per question, more than 200 questions per second on one
+process), and the Spark jobs scale to the physical cores of the machine, so the LLM and the SEC
+download limit are the only real bottlenecks.
+
+\paragraph{Limitations.} About 27\% of 10-Qs have no MD\&A heading that our section detector
+recognises, so they have no text. Quarters are calendar quarters, so for companies with a different
+fiscal year ``Q2'' means April to June. Passages from 10-Q HTML leave out tables, so ratio questions
+on bulk 10-Qs usually decline. Document QA checks that the inputs of a calculation are printed in the
+filing, but not that they are the right lines. Free-text grades come from an LLM grader that agreed
+with a stronger model on 90\% of a sample; a check by a person is still to do.
+
+\paragraph{Next steps.} Before the final report we plan to (1) check the grader sample by hand,
+(2) give small models a simpler document QA format, (3) run the load test on smaller instance types
+(t3.large, c7i.xlarge) and with several API workers behind a load balancer, and (4) improve the
+MD\&A detector and keep tables in 10-Q passages.

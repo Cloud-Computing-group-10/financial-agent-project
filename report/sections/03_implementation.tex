@@ -1,0 +1,159 @@
+\section{Methodology: implementation and deployment}
+
+\subsection{Tech stack}
+
+The system is written in Python 3.12. \Cref{tab:stack} lists the main components.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+Component & Used for \\
+\midrule
+Postgres 16 + pgvector & Figures, filings and passages with their embeddings, in one database \\
+PySpark 4.3 (local mode) & The two batch jobs: XBRL facts to Parquet, and 10-Q text to embedded passages \\
+fastembed (MiniLM-L6, ONNX on CPU) & 384-dimension embeddings of passages and questions \\
+FastAPI and Streamlit & The \code{/ask} HTTP service and a web page that shows the answer, its sources and timings \\
+Docker Compose & Runs all of the above on one machine, on the laptop and on EC2 \\
+Claude Haiku 5.5 (API) & Hosted LLM for the system and for grading \\
+Qwen2.5 3B and 7B (4-bit) & Local LLMs: mlx on a MacBook (Apple GPU) or Ollama on the EC2 CPU \\
+pytest + GitHub Actions & 37 tests, run on every push against a real Postgres \\
+\bottomrule
+\end{tabularx}
+\caption{Main components.}
+\label{tab:stack}
+\end{table}
+
+All LLM calls go through one module (\code{finqa/llm.py}), so the same code runs with Claude, with an
+OpenAI-compatible server such as Ollama, or with mlx on Apple Silicon. A command-line option picks
+the model, which is how the experiments switch between models.
+
+\subsection{Code structure}
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+File & What it does \\
+\midrule
+\code{finqa/parse.py}     & Step 1 and 2: LLM parse with a JSON schema, then the code checks \\
+\code{finqa/workflow.py}  & Router, SQL templates, number path, ``why'' path, the result object \\
+\code{finqa/docqa.py}     & Document QA: search one filing, input check, arithmetic-only formula evaluator \\
+\code{finqa/writer.py}    & Final answer from verified facts; rejects new numbers or unknown references \\
+\code{finqa/companies.py} & Finds the company named in the question \\
+\code{finqa/search.py}, \code{embed.py} & BM25, semantic and hybrid search; embeddings \\
+\code{finqa/facts.py}     & XBRL facts to figure rows (used by the pilot load and by Spark) \\
+\code{finqa/text.py}, \code{pdf\_docs.py} & 10-Q HTML and FinanceBench PDFs to sections and passages \\
+\code{spark/}             & The Spark jobs for facts and text \\
+\code{finqa/rag\_baseline.py}, \code{closed\_book.py} & Baselines C and N \\
+\code{api.py}, \code{frontend/app.py} & HTTP API and web page \\
+\code{eval/}              & Question set, answer key, experiment runner, grader, load test, summary \\
+\code{cloud/}             & Instance setup, bulk download, full pipeline, scaling experiment, S3 backup \\
+\bottomrule
+\end{tabularx}
+\caption{Code structure (repository branch \code{feature/cloud-app}).}
+\label{tab:code}
+\end{table}
+
+\subsection{Data pipeline}
+
+One script, \code{cloud/run\_pipeline.sh}, runs the whole pipeline on the instance
+(\cref{tab:pipeline}). Every step skips work that is already done, so a stopped run can simply be
+started again.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{Xr}
+\toprule
+Step & Time on c7i.8xlarge \\
+\midrule
+Download the SEC bulk files (\code{companyfacts.zip}, \code{submissions.zip}) & under 2 min \\
+Spark facts job: 20,609 company files $\to$ Parquet & 40 s \\
+Load the figures into Postgres (bulk \code{COPY}, then an SQL merge) & 60 s \\
+List all 10-Qs since 2019 from \code{submissions.zip} (140,226 filings) & 20 s \\
+Download the 10-Qs at 8 requests/s, in 71 batches of 2,000 & about 5 h \\
+Spark text job per finished batch: split MD\&A into passages, embed, load & about 8 h, in parallel with the download \\
+\bottomrule
+\end{tabularx}
+\caption{Pipeline steps and their run time on the full data.}
+\label{tab:pipeline}
+\end{table}
+
+\paragraph{Why only MD\&A for the bulk text.} Embedding is the slow step, about 5 passages per second
+per vCPU. All sections of every 10-Q would give about 18 million passages and take about 33 hours on
+this machine. The MD\&A is about 30\% of the passages and holds the reasons that ``why'' questions
+need, so the bulk run keeps only the MD\&A. For the ten companies of our question set and for the 84
+FinanceBench filings we keep every section, and for the FinanceBench PDFs we keep the tables too.
+
+\paragraph{Problems found only by the full run.} Running on all filers exposed problems that a
+ten-company pilot never showed. 70 company files were empty or incomplete; 109 10-Qs were filed
+jointly by two companies and had to be stored once per company; 879 companies were stored with a
+preferred-share ticker such as \code{BA-PA} instead of the common one; and ``Honeywell'' matched
+both Honeywell International and a new listing called Honeywell Aerospace. We fixed each of them in
+code, with a test, and reloaded.
+
+\subsection{Deployment on AWS}
+
+\Cref{fig:cloud} shows the deployment. The steps to reproduce it are in \code{REPRODUCE.md} and
+\code{docs/CLOUD.md} in the repository:
+\begin{enumerate}
+  \item Launch a c7i.8xlarge instance with Ubuntu and a 250 GB disk. The security group allows SSH
+        (and optionally the web page) only from our own IP address.
+  \item Clone the repository and run \code{cloud/ec2\_setup.sh}, which installs Docker, Docker
+        Compose and the AWS CLI.
+  \item Run \code{cloud/fetch\_bulk.sh} and then \code{cloud/run\_pipeline.sh} in the background.
+  \item Start the services with \code{docker compose up -d}. The experiments on the laptop reach the
+        database through an SSH tunnel.
+  \item Copy the raw SEC files, Parquet output and passages to S3 with
+        \code{cloud/backup\_to\_s3.sh}, and stop the instance when it is not used.
+\end{enumerate}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  c/.style={draw,rounded corners=2pt,align=center,font=\small,minimum height=10mm,text width=22mm,fill=white},
+  arr/.style={-{Stealth[length=2mm]},thick}]
+  \node[c] (spark) at (0,0)    {Spark jobs\\(facts, text)};
+  \node[c] (pg)    at (3,0)    {Postgres 16\\+ pgvector};
+  \node[c] (api)   at (6,0)    {FastAPI\\\code{/ask}};
+  \node[c] (ui)    at (9,0)    {Streamlit\\web page};
+  \node[c] (oll)   at (6,-1.7) {Ollama\\(Qwen2.5-3B)};
+  \begin{scope}[on background layer]
+    \node[draw,dashed,rounded corners,fit=(spark)(pg)(api)(ui)(oll),inner sep=3mm,
+          label={[font=\small,anchor=north east]south east:EC2 c7i.8xlarge, Docker Compose}] (ec2) {};
+  \end{scope}
+  \node[c,text width=30mm] (sec)  at (0,2.4)  {SEC EDGAR\\bulk files, 10-Qs};
+  \node[c] (s3)   at (0,-3.6) {S3\\raw data, Parquet};
+  \node[c] (llm)  at (6,2.4)  {Claude API\\(optional)};
+  \node[c] (user) at (12.2,0) {User / laptop\\(SSH tunnel)};
+  \draw[arr] (sec)--(spark); \draw[arr] (spark)--(pg); \draw[arr] (api)--(pg);
+  \draw[arr] (ui)--(api); \draw[arr] (api)--(oll); \draw[arr] (user)--(ui);
+  \draw[arr] (api)--(llm); \draw[arr] (spark)--(s3);
+\end{tikzpicture}
+\caption{Deployment on one EC2 instance. The LLM is either the Claude API or Qwen served by Ollama
+on the same instance.}
+\label{fig:cloud}
+\end{figure}
+
+\subsection{Cost}
+
+The whole project so far cost about \$20 of a \$100 AWS budget (\cref{tab:cost}). The instance is
+the main cost; the API calls of all experiments together cost less than one dollar, because the
+workflow sends short inputs.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{lr}
+\toprule
+Item & Cost \\
+\midrule
+EC2 c7i.8xlarge, about 13 hours running & about \$19 \\
+EBS disk 250 GB, while it exists & about \$0.65 per day \\
+Anthropic API: all Haiku answers (2.0M input, 0.23M output tokens) & \$0.32 \\
+LLM grading (Haiku) and grader check (Sonnet, 60 answers) & about \$0.50 \\
+Qwen on the MacBook or on the EC2 CPU & \$0 \\
+\bottomrule
+\end{tabular}
+\caption{Cost of the project so far.}
+\label{tab:cost}
+\end{table}

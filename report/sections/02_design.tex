@@ -1,0 +1,169 @@
+\section{Methodology: design}
+
+\subsection{Scope and data sources}
+
+The system answers questions about the quarterly results of US public companies. It uses three
+public datasets from the SEC and one benchmark (\cref{tab:data}).
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{lXl}
+\toprule
+Source & What we use & Size \\
+\midrule
+\code{companyfacts.zip} & XBRL figures of every filer; we keep 10 metrics per 10-Q & 1.4 GB, 20,609 files \\
+\code{submissions.zip} & List of filings per company, to find each 10-Q document & 1.5 GB \\
+10-Q documents (EDGAR) & Text passages from the MD\&A section, for ``why'' questions & 140,226 filings \\
+FinanceBench~\cite{financebench} & 150 questions with analyst answers, 84 PDF filings & 160 MB \\
+\bottomrule
+\end{tabularx}
+\caption{Data sources.}
+\label{tab:data}
+\end{table}
+
+XBRL (eXtensible Business Reporting Language) is the machine-readable version of the financial
+statements that companies file together with each report. Each fact has a tag (for example
+\code{Revenues}), a value, a unit and the start and end date of its period. This gives us exact
+numbers without parsing tables. We keep ten metrics: revenue, cost of sales, gross profit, SG\&A,
+R\&D, operating income, pretax income, net income, diluted EPS and operating cash flow. Reasons
+(``why did sales fall?'') are not in XBRL, so they come from the text of the
+\emph{Management's Discussion and Analysis} (MD\&A) section of each 10-Q.
+
+\subsection{Answer workflow}
+
+\Cref{fig:workflow} shows the five steps of a question. Only two of them call an LLM (shaded).
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw,rounded corners=2pt,align=center,font=\small,minimum height=12mm,text width=25mm},
+  llm/.style={box,fill=llmbox},
+  path/.style={draw,rounded corners=2pt,align=center,font=\footnotesize,text width=40mm,minimum height=15mm},
+  arr/.style={-{Stealth[length=2mm]},thick}]
+  \node[llm] (parse) at (0,0)    {1. Parse\\\footnotesize question $\to$ JSON};
+  \node[box] (check) at (3.6,0)  {2. Check\\\footnotesize company, metric, scope};
+  \node[box] (find)  at (7.2,0)  {3. Find\\\footnotesize company and filing (SQL)};
+  \node[box] (route) at (10.8,0) {4. Route\\\footnotesize by question type};
+  \node[path] (num) at (0.9,-2.6)  {\textbf{Numbers}\\SQL templates over XBRL; change computed in SQL};
+  \node[path] (why) at (5.4,-2.6)  {\textbf{Why}\\hybrid search in MD\&A; LLM writes claims that cite passages};
+  \node[path] (doc) at (9.9,-2.6)  {\textbf{Document QA}\\search one filing; code checks inputs and evaluates the formula};
+  \node[llm,text width=105mm] (write) at (5.4,-5.0) {5. Write\\\footnotesize LLM phrases the verified facts; code checks numbers and references};
+  \draw[arr] (parse)--(check); \draw[arr] (check)--(find); \draw[arr] (find)--(route);
+  \draw[thick] (route.south) -- ++(0,-0.45) coordinate (b);
+  \draw[thick] (b) -- (b -| num.north);
+  \draw[arr] (b -| num.north) -- (num.north);
+  \draw[arr] (b -| why.north) -- (why.north);
+  \draw[arr] (b -| doc.north) -- (doc.north);
+  \draw[arr] (num.south) -- (num.south |- write.north);
+  \draw[arr] (why.south) -- (write.north);
+  \draw[arr] (doc.south) -- (doc.south |- write.north);
+\end{tikzpicture}
+\caption{The answer workflow. Shaded steps call the LLM; all other steps are code. The ``why''
+path also calls the LLM to write its claims.}
+\label{fig:workflow}
+\end{figure}
+
+\paragraph{Step 1: parse.} The LLM turns the question into a small JSON object: company (as written
+in the question), metric, period (for example \code{Q2 2023}), question type (numeric, explanatory
+or both), comparison (year over year, quarter over quarter or none) and search terms. The output must
+match a fixed schema.
+
+\paragraph{Step 2: check.} Code then checks the parse. The company must appear in the question
+(``ask, don't guess''), the metric must be one of the ten, and a few scope rules always apply: Q4
+and full-year numbers are only in the 10-K, and segment numbers are not in our figures. A question
+without a ``why'' word is never sent to the explanation path. These checks catch the most common
+mistakes of small models.
+
+\paragraph{Step 3: find.} SQL looks up the company (by ticker, a known alias, or a normalised name)
+and the filing that covers the period.
+
+\paragraph{Step 4: route.} The question goes to one of three paths.
+\begin{itemize}
+  \item \textbf{Numbers.} One of the ten metrics for a quarter, or its change. A fixed SQL template
+        reads the figure. For a year-over-year change it reads the prior-year column of the
+        \emph{same} 10-Q, so restated values are used (for example Johnson \& Johnson after the
+        Kenvue spin-off). The change in percent and in dollars is computed in SQL. Each figure cites
+        the filing, statement, line label, XBRL tag and period.
+  \item \textbf{Why.} Hybrid search (BM25 plus semantic, merged by reciprocal rank fusion) over the
+        MD\&A passages of that one filing. If the best match is too weak (cosine similarity below
+        0.45), the system declines. Otherwise the LLM writes short claims, each of which must cite a
+        retrieved passage by its id; claims that cite an unknown passage are dropped.
+  \item \textbf{Document QA.} Everything else: ratios, full years, other line items and text
+        questions, as in FinanceBench. The system searches the filing of that period (top 10
+        passages). For a calculation the LLM does not give the result. It names each input exactly
+        as printed, with the passage it comes from, and a formula. Code checks that each input
+        really is printed in that passage and then evaluates the formula (only arithmetic is
+        allowed).
+\end{itemize}
+
+\paragraph{Step 5: write.} A second LLM call turns the verified facts into a short answer. It gets
+only the question and the facts, each with a reference such as
+\code{[F1] 3M, net sales, Q2 2023: \$8.325 billion}. Code rejects the answer if it contains a number
+that is not in the facts or a reference that does not exist. In that case the system uses a fixed
+template answer instead. An example answer:
+
+\begin{lstlisting}
+3M's net sales fell year over year in the second quarter of 2023. Net sales were
+$8.325 billion in Q2 2023, compared with $8.702 billion in Q2 2022 [F1][F2]. The
+computed change is a decrease of 4.3%, or $377 million.
+\end{lstlisting}
+
+The design rule is that the user never sees a number that code did not find or compute. A number
+question takes two LLM calls (parse, write), a ``why'' question three (parse, claims, write) and a
+document QA question two (parse, answer).
+
+\subsection{Database design}
+
+All data lives in one Postgres 16 database with the pgvector extension (\cref{tab:db}).
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{lrX}
+\toprule
+Table & Rows & Contents \\
+\midrule
+\code{companies}   & 9,695     & CIK, name, main ticker, normalised name for lookups \\
+\code{documents}   & 140,520   & One row per filing: form, period, filing date, link, whether text is indexed \\
+\code{figures}     & 3,022,763 & Metric, XBRL tag, line label, period, value, unit, derived flag \\
+\code{metric\_tags}& 96,950    & Which XBRL tag each company uses for each metric \\
+\code{chunks}      & 4,550,888 & Passages of about 180 words, with section, heading and a 384-dimension embedding \\
+\bottomrule
+\end{tabularx}
+\caption{Database tables after the full load.}
+\label{tab:db}
+\end{table}
+
+Two rules for the figures matter for correctness. A quarter is a fact whose period is about three
+months long, labelled from its own end date, and the tag is chosen per filing from an ordered list
+of candidates (companies use different tags for ``revenue''). Cash flow is only reported year to
+date, so a quarter is computed as the year-to-date value minus the previous year-to-date value and
+marked as derived. Every search is filtered to one filing first, so the 4.5 million passages do not
+slow a question down.
+
+\subsection{Cloud architecture}
+
+We run everything on one AWS EC2 instance (c7i.8xlarge: 32 vCPUs, 64 GB memory, 250 GB disk,
+Ubuntu, region us-east-1) with Docker Compose. The containers are Postgres with pgvector, the
+FastAPI service, a Streamlit web page, the Spark jobs and, optionally, Ollama to serve a local LLM
+on the CPU. S3 keeps a long-term copy of the raw downloads, the Parquet files and the passages.
+
+We considered an EMR Spark cluster but chose one large machine. The slowest part of the pipeline is
+downloading 140,000 documents, and the SEC allows at most 10 requests per second from one user, no
+matter how many machines send them. The CPU-heavy part (splitting and embedding text) is spread
+over the cores of one machine by Spark just as well as over several machines, without the cost of
+starting a cluster. The instance is stopped when it is not used, and the heavy steps are resumable.
+
+\subsection{Baselines}
+
+To show what the workflow adds, we compare it with two simpler systems that use the same LLM.
+\begin{itemize}
+  \item \textbf{C: simple RAG.} The same passage index and hybrid search over the correct filing,
+        top 10 passages, one LLM call that must cite passages. No parsing, routing, SQL, code
+        arithmetic or checks.
+  \item \textbf{N: closed book.} The LLM gets only the question and must answer from its own
+        knowledge, with the same instruction to cite sources or say it does not know. This shows
+        whether retrieval is needed at all.
+\end{itemize}
+We also run \textbf{A0}, our workflow with the template answer instead of the writer, to measure
+what the writer LLM adds. A fourth baseline, giving the LLM the whole filing, was built but not run:
+it mostly measures how much context a model can take and was the most expensive cell.
