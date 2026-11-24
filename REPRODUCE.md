@@ -3,7 +3,7 @@
 This file lists every command needed to rebuild the system from nothing and rerun every reported
 experiment, in order. It also says where each command runs, how long it takes, what it costs, and
 which numbers you should get. The *why* behind the design is in `README.md` and
-`Cloud Computing Project Design Plan.md`; the AWS console steps are in more detail in `docs/CLOUD.md`.
+`docs/DESIGN_PLAN.md`; the AWS console steps are in more detail in `docs/CLOUD.md`.
 
 Three places run commands. Each step says which one:
 
@@ -63,7 +63,7 @@ git clone https://github.com/Cloud-Computing-group-10/financial-agent-project.gi
 ```
 
 ```bash
-cd financial-agent-project && git checkout feature/cloud-app && cp .env.example .env
+cd financial-agent-project && cp .env.example .env
 ```
 
 Open `.env` and fill in `ANTHROPIC_API_KEY` and `SEC_USER_AGENT` (your name and email). `.env` is

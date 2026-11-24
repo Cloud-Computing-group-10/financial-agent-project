@@ -11,7 +11,7 @@ We compare this "workflow" (system A) against a simple RAG pipeline with the sam
 
 **To rebuild everything from scratch and rerun every experiment, follow [REPRODUCE.md](REPRODUCE.md).** It lists every command in order, with run times, costs and the numbers you should get.
 
-The design and the reasons behind it are in `Cloud Computing Project Design Plan.md`; section 15 lists what changed while building it, and section 16 is the experiment plan.
+The design and the reasons behind it are in `docs/DESIGN_PLAN.md`; section 15 lists what changed while building it, and section 16 is the experiment plan.
 
 
 ## 1. Architecture
