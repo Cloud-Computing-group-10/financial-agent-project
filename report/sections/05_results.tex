@@ -1,0 +1,301 @@
+\section{Results}
+
+All numbers below come from the saved runs in \code{eval/results/} and are collected by
+\code{eval/summarize.py} into \code{eval/RESULTS\_v2.md}.
+
+\subsection{E1: accuracy on our question set}
+
+\Cref{tab:e1-v2} and \cref{fig:e1-v2} show the accuracy on the 50 test questions. ``Wrong decl.''
+counts questions the system refused although it should have answered (out of 42). Systems A and C
+refused seven or eight of the eight decline questions correctly.
+
+\begin{table}[ht]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrrrr}
+\toprule
+System & Model & Accuracy & Wrong decl. & Tokens in / out & \$ / 1k q \\
+\midrule
+A workflow       & Haiku 5.5   & \textbf{48/50 (96\%)} & 0  & 2,804 / 297 & 0.43 \\
+A0 template      & Haiku 5.5   & 48/50 (96\%)          & 0  & 2,386 / 209 & 0.34 \\
+C simple RAG     & Haiku 5.5   & 35/50 (70\%)          & 0  & 3,583 / 451 & 0.58 \\
+N closed book    & Haiku 5.5   & 15/50 (30\%)          & 11 & 112 / 804   & 0.41 \\
+\midrule
+A workflow       & Qwen2.5-7B  & \textbf{42/50 (84\%)} & 5  & 1,330 / 112 & 0 \\
+A0 template      & Qwen2.5-7B  & 42/50 (84\%)          & 5  & 1,049 / 77  & 0 \\
+C simple RAG     & Qwen2.5-7B  & 19/50 (38\%)          & 3  & 2,472 / 137 & 0 \\
+N closed book    & Qwen2.5-7B  & 7/50 (14\%)           & 33 & 88 / 263    & 0 \\
+\midrule
+A workflow       & Qwen2.5-3B  & \textbf{31/50 (62\%)} & 8  & 1,394 / 126 & 0 \\
+A0 template      & Qwen2.5-3B  & 31/50 (62\%)          & 8  & 1,124 / 98  & 0 \\
+C simple RAG     & Qwen2.5-3B  & 20/50 (40\%)          & 2  & 2,472 / 194 & 0 \\
+N closed book    & Qwen2.5-3B  & 9/50 (18\%)           & 34 & 88 / 127    & 0 \\
+\midrule
+A workflow       & Qwen2.5-3B (EC2 CPU) & 27/50 (54\%) & 14 & 1,052 / 131 & 0 \\
+\bottomrule
+\end{tabular}
+\caption{E1 on our question set (50 test questions). Tokens are the mean per question; the last column is the cost per 1,000 questions. Local models
+cost nothing per question. The last row runs Qwen2.5-3B with Ollama on the CPU of the EC2 instance.}
+\label{tab:e1-v2}
+\end{table}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  ybar, bar width=9pt, width=0.85\linewidth, height=55mm,
+  ymin=0, ymax=110, ytick={0,20,40,60,80,100}, ylabel={Accuracy (\%)},
+  symbolic x coords={Haiku 5.5,Qwen2.5-7B,Qwen2.5-3B}, xtick=data,
+  enlarge x limits=0.25, legend style={at={(0.5,1.03)},anchor=south,legend columns=-1,font=\small,/tikz/every even column/.append style={column sep=3mm}},
+  nodes near coords, nodes near coords style={font=\scriptsize}, every node near coord/.append style={/pgf/number format/precision=0}]
+\addplot[fill=wf,draw=none]  coordinates {(Haiku 5.5,96) (Qwen2.5-7B,84) (Qwen2.5-3B,62)};
+\addplot[fill=rag,draw=none] coordinates {(Haiku 5.5,70) (Qwen2.5-7B,38) (Qwen2.5-3B,40)};
+\addplot[fill=cb,draw=none]  coordinates {(Haiku 5.5,30) (Qwen2.5-7B,14) (Qwen2.5-3B,18)
+};
+\legend{A workflow, C simple RAG, N closed book}
+\end{axis}
+\end{tikzpicture}
+\caption{E1 accuracy on our question set by system and model.}
+\label{fig:e1-v2}
+\end{figure}
+
+\Cref{tab:e1-cat} breaks the results down by category.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{llrrrrrr}
+\toprule
+System & Model & Lookup & Change & Paraphrase & Why & Decline & Latest \\
+ & & (10) & (10) & (8) & (12) & (8) & (2) \\
+\midrule
+A & Haiku 5.5  & 10 & 10 & 8 & 11 & 7 & 2 \\
+C & Haiku 5.5  & 6  & 6  & 3 & 11 & 8 & 1 \\
+N & Haiku 5.5  & 1  & 1  & 0 & 7  & 6 & 0 \\
+\midrule
+A & Qwen2.5-7B & 8  & 10 & 8 & 7  & 7 & 2 \\
+C & Qwen2.5-7B & 1  & 0  & 1 & 8  & 8 & 1 \\
+N & Qwen2.5-7B & 1  & 0  & 0 & 0  & 6 & 0 \\
+\midrule
+A & Qwen2.5-3B & 7  & 9  & 6 & 1  & 7 & 1 \\
+C & Qwen2.5-3B & 2  & 1  & 2 & 7  & 8 & 0 \\
+N & Qwen2.5-3B & 1  & 0  & 0 & 0  & 8 & 0 \\
+\bottomrule
+\end{tabular}
+\caption{E1 correct answers per category on our question set.}
+\label{tab:e1-cat}
+\end{table}
+
+\paragraph{What the numbers show.}
+\begin{itemize}
+  \item \textbf{Numbers are where the workflow wins.} Simple RAG gets at most 6 of 10 changes right,
+        because the statement tables are not in the 10-Q passages and the model only finds numbers
+        that the text happens to mention. The workflow takes them from XBRL and computes the change
+        in SQL, so even Qwen2.5-3B gets 9 of 10.
+  \item \textbf{Small models gain the most.} With Qwen2.5-7B the workflow reaches 84\% against 38\%
+        for simple RAG on the same passages. A model that runs on a laptop becomes useful once code
+        does the numbers.
+  \item \textbf{``Why'' questions are a draw for Haiku} (11 of 12 for both A and C). For Qwen2.5-3B
+        they are the weak spot of the workflow (1 of 12): its claims rarely pass the citation check,
+        so the system declines instead of guessing.
+  \item \textbf{Wrong declines come from small models misreading the question} (wrong company or
+        metric): 5--8 of 42 for Qwen on the MacBook and 14 with the Ollama build of Qwen2.5-3B.
+        Haiku had none with A or C.
+  \item \textbf{Without retrieval the models mostly cannot answer.} The closed-book system N gets
+        30\% with Haiku and 14--18\% with Qwen. Most of its answers say that the model does not know
+        the figure (11 wrong declines out of 42 for Haiku, 33--34 for Qwen). The few numbers it gets
+        right are hedged guesses from memory (``around \$2 per share''), and none of them cites a
+        passage a reader could check. Haiku does better on ``why'' questions (7 of 12), because the
+        reasons for large companies' results are widely reported, but it also answered two decline
+        questions from memory instead of refusing. Retrieval is clearly needed: the same model gains
+        40 points with simple RAG and 66 points with our workflow.
+\end{itemize}
+
+\paragraph{The answer writer (A vs.\ A0).} The writer LLM costs one to two seconds and a few hundred
+tokens per answer. It never changed a number that reached the user: Haiku and Qwen2.5-7B passed the
+check on every answer (38 of 38 and 36 of 36), while Qwen2.5-3B failed it on 25 of 32 answers, mostly
+because it left out the references. Every rejected answer fell back to the template, so A and A0 have
+exactly the same accuracy for all models. The writer makes answers easier to read, but it is not
+needed for correctness.
+
+\subsection{E1: accuracy on FinanceBench}
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{llrrrrrrr}
+\toprule
+System & Model & $n$ & Correct & Wrong & Declined & Calc. & Analyst & Other \\
+\midrule
+A workflow    & Haiku 5.5 & 150 & \textbf{104 (69\%)} & 20 & 26 & 34 & 29 & 41 \\
+C simple RAG  & Haiku 5.5 & 150 & 84 (56\%)           & 28 & 38 & 27 & 24 & 33 \\
+N closed book & Haiku 5.5 & 150 & 34 (23\%)           & 53 & 63 & 4  & 20 & 10 \\
+\midrule
+A workflow    & Qwen2.5-7B & 50 & 6 (12\%)  & 15 & 29 & 0 & 2 & 4 \\
+C simple RAG  & Qwen2.5-7B & 50 & 11 (22\%) & 23 & 16 & 1 & 5 & 5 \\
+N closed book & Qwen2.5-7B & 50 & 5 (10\%)            & 39 & 6  & 0  & 3  & 2 \\
+\midrule
+A workflow    & Qwen2.5-3B & 50 & 8 (16\%)  & 24 & 18 & 0 & 2 & 6 \\
+C simple RAG  & Qwen2.5-3B & 50 & 12 (24\%) & 24 & 14 & 1 & 4 & 7 \\
+N closed book & Qwen2.5-3B & 50 & 1 (2\%)             & 15 & 34 & 0  & 1  & 0 \\
+\bottomrule
+\end{tabular}
+\caption{E1 on FinanceBench. Haiku answers all 150 questions (50 per type); the Qwen models answer the
+same random sample of 50 (15 calculations, 14 analyst, 21 other). ``Calc.'' is metrics-generated,
+``Analyst'' domain-relevant and ``Other'' novel-generated.}
+\label{tab:e1-fb}
+\end{table}
+
+\begin{itemize}
+  \item \textbf{With Haiku the workflow is ahead in every question type} and gives fewer wrong
+        answers (13\% against 19\%). The biggest gain is on calculations (34 against 27 of 50), where
+        code evaluates the formula from cited inputs. Only one answer used an input that was not
+        printed in a retrieved passage.
+  \item \textbf{With small models the result flips.} Qwen2.5-7B gets 12\% with the workflow and 22\%
+        with simple RAG. Document QA asks the model for structured output: an answer, cited claims and,
+        for calculations, each input with its passage and a formula. Qwen often cannot produce this
+        from long 10-K passages, so the system declines (29 of 50) instead of guessing. It gives fewer
+        wrong answers than simple RAG (15 against 23), but also fewer right ones.
+  \item \textbf{Without retrieval FinanceBench is mostly out of reach.} Closed-book Haiku gets 23\%
+        and gives more wrong answers (53) than either system with retrieval (20 and 28). It does best
+        on analyst-judgement questions (20 of 50), which general knowledge about a company can often
+        answer, and worst on calculations (4 of 50), which need the exact figures of one filing.
+        Qwen2.5-7B without retrieval answers almost everything and gets 39 of 50 wrong: a small model
+        that guesses from memory is the most dangerous setup for financial data.
+\end{itemize}
+
+\subsection{E2: retrieval}
+
+\Cref{tab:e2} compares the three search methods without any LLM. For our ``why'' questions a hit is
+a passage that contains one of the evidence phrases; for FinanceBench it is a passage from the
+evidence page. MRR is the mean reciprocal rank of the first hit in the top 10.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{lrrrrrrr}
+\toprule
+ & \multicolumn{3}{c}{``Why'' questions, MD\&A (12)} & \multicolumn{3}{c}{FinanceBench (150)} & \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+Method & hit@1 & hit@5 & MRR & hit@1 & hit@10 & MRR & ms \\
+\midrule
+BM25            & 0.25 & 0.83 & 0.49 & 0.19 & 0.45 & 0.26 & 9--50 \\
+Semantic (MiniLM) & 0.33 & 0.75 & 0.53 & 0.26 & 0.65 & 0.36 & 12--25 \\
+Hybrid (RRF)    & \textbf{0.50} & 0.83 & \textbf{0.61} & \textbf{0.29} & 0.65 & \textbf{0.40} & 9--47 \\
+\bottomrule
+\end{tabular}
+\caption{E2 retrieval quality and median search time.}
+\label{tab:e2}
+\end{table}
+
+Hybrid search puts the right passage first twice as often as BM25 on ``why'' questions and has the
+best MRR on both sets, at the same speed, so it is the default. The development questions set the
+evidence threshold to a cosine similarity of 0.45: the lowest top score of a development search that
+found its evidence was 0.464, and our first guess of 0.55 would have declined 3 of 8 answerable
+questions. FinanceBench is harder for search (hit@10 of 0.65) because its evidence is often a table
+in a 100-page 10-K.
+
+\subsection{E3: latency per step}
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{lrr}
+\toprule
+Step & Number question (ms) & ``Why'' question (ms) \\
+\midrule
+LLM parse & 4,301 & 4,341 \\
+SQL: company / filing / figures & 1.3 / 0.7 / 1.1 & 1.7 / 0.6 / 2.9 \\
+Question embedding / vector search / ranking & -- & 2.9 / 3.0 / 0.0 \\
+LLM claims & -- & 15,439 \\
+LLM writer & 2,940 & 5,838 \\
+\midrule
+Total (median) & 7,072 & 25,726 \\
+\bottomrule
+\end{tabular}
+\caption{E3 median time per step on the c7i.8xlarge, with Qwen2.5-3B on the CPU (Ollama).}
+\label{tab:e3}
+\end{table}
+
+Our own steps (SQL and search) take less than 10 ms per question. Everything else is LLM time: an LLM
+call takes 100 to 1,000 times longer than the rest of the pipeline. Running Qwen2.5-3B on the CPU of
+the instance works without any API key, but it is slower and less accurate (54\%) than the same
+model on a laptop's Apple GPU (62\%, 9 s per question including the SSH tunnel).
+
+\subsection{E4: load test}
+
+To measure the system itself, the load test runs the whole pipeline with the LLM steps replaced by
+fixed outputs, so only SQL, search and code run.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{rrrr}
+\toprule
+Concurrent users & Questions / s & Median ms & p95 ms \\
+\midrule
+1  & 82.8  & 11  & 17 \\
+10 & 284.5 & 34  & 46 \\
+50 & 221.5 & 206 & 322 \\
+\bottomrule
+\end{tabular}
+\caption{E4 throughput and latency of one API process on the c7i.8xlarge, without the LLM.}
+\label{tab:e4}
+\end{table}
+
+One Python process serves about 280 questions per second at 10 users. At 50 users it is saturated
+and latency grows, so more API worker processes, or several instances behind a load balancer, would
+be the next step. In practice the LLM is the limit long before this layer is.
+
+\subsection{E5: Spark scaling}
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.62\linewidth, height=55mm, xmode=log, log basis x=2,
+  xtick={1,2,4,8,16,32}, xticklabels={1,2,4,8,16,32},
+  xlabel={Spark cores}, ylabel={Speed-up}, ymin=0, ymax=12,
+  legend pos=north west, legend style={font=\small}, grid=major, grid style={gray!20}]
+\addplot[wf,thick,mark=*] coordinates {(1,1.0) (2,1.9) (4,3.2) (8,5.2) (16,7.7) (32,8.5)};
+\addplot[cb,thick,mark=square*] coordinates {(1,1.0) (2,1.8) (4,3.2) (8,5.2) (16,7.0) (32,7.0)};
+\addplot[gray,dashed,domain=1:12,samples=2] {x};
+\legend{Text job, Facts job, Ideal (linear)}
+\end{axis}
+\end{tikzpicture}
+\hspace{4mm}
+\begin{minipage}[b]{0.3\linewidth}\small
+\begin{tabular}{rrr}
+\toprule
+Cores & Text s & Facts s \\
+\midrule
+1 & 170 & 284.8 \\
+2 & 90 & 157.3 \\
+4 & 53 & 88.3 \\
+8 & 33 & 55.0 \\
+16 & 22 & 40.6 \\
+32 & 20 & 40.6 \\
+\bottomrule
+\end{tabular}
+\vspace{6mm}
+\end{minipage}
+\caption{E5 speed-up of the two Spark jobs on one c7i.8xlarge (32 vCPUs = 16 physical cores with
+two threads each). The text job ran on 80 filings (2,458 passages), the facts job on all 20,609 company files.}
+\label{fig:e5}
+\end{figure}
+
+Both jobs scale well up to 8 cores (5.2 times faster) and still gain up to 16. Going from 16 to 32
+adds little, for two reasons: the 32 vCPUs are only 16 physical cores, and Spark's fixed start-up
+time weighs more on these small test jobs. On the full batches of 2,000 filings the instance reached
+160 to 190 passages per second.
+
+\subsection{Analysis}
+
+The results support the main design idea. When code finds and computes the numbers, the size of the
+model matters much less: on our question set the workflow gains 26 points over simple RAG with Haiku
+and 46 points with Qwen2.5-7B. The checks also change \emph{how} the system fails. It declines when it
+is unsure instead of giving a wrong number, which is what a user of financial data needs.
+
+The workflow does not help everywhere. On FinanceBench the small models do worse with document QA
+than with simple RAG, because our structured answer format is too hard for them. A simpler format for
+small models, or a fallback to a plain answer that is marked as unchecked, is the most direct fix.
+
+On the cloud side, the bottleneck is never our own code: the pipeline answers in about 10 ms without
+the LLM, the database holds 4.5 million passages without slowing down a question, and the Spark jobs
+use the cores of one machine well. The two slow parts are the SEC download limit and the
+embedding of text, which is why one large instance was enough and a cluster was not needed.

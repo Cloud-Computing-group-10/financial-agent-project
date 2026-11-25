@@ -1,0 +1,2 @@
+# Optional: run Qwen locally on Apple Silicon (--llm qwen).
+mlx-lm>=0.32; platform_system == "Darwin"

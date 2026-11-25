@@ -1,0 +1,441 @@
+"""The 5-step workflow: parse -> route -> retrieve/compute -> check -> cited answer or abstain.
+
+Design rule: the LLM handles language; numbers come from fixed SQL templates over the figures
+table, and source tags come from the database/search metadata, never from the model.
+"""
+from __future__ import annotations
+
+import time
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+from . import llm
+from .companies import find_companies
+from .config import MAX_ROUNDS, METRICS, MIN_PASSAGES, SEARCH_METHOD, THRESHOLDS, TOP_K
+from .db import connect
+from .docqa import answer_from_document
+from .timing import timed
+from .writer import write
+from .parse import ParsedQuestion, parse_question
+from .search import MDA, search
+
+# ============================================================================ SQL templates
+# The LLM never writes SQL; it only supplies (company, metric, period), which code validates.
+SQL_LOOKUP = """
+SELECT f.*, d.title, d.accession, d.url, d.period AS doc_period, d.filed
+FROM figures f JOIN documents d USING (report_id)
+WHERE d.company_id = %(company_id)s AND f.metric = %(metric)s AND f.period = %(period)s AND f.duration = '3M'
+ORDER BY (d.period = f.period) DESC, d.filed ASC
+"""
+
+# The prior-year quarter as shown in the same 10-Q (its comparison column). Companies restate prior
+# periods (e.g. after a spin-off), and the year-over-year change should compare like with like.
+SQL_SAME_FILING = """
+SELECT f.*, d.title, d.accession, d.url, d.period AS doc_period, d.filed
+FROM figures f JOIN documents d USING (report_id)
+WHERE f.report_id = %(report_id)s AND f.metric = %(metric)s AND f.period = %(period)s AND f.duration = '3M'
+"""
+
+SQL_CHANGE = """
+SELECT cur.value AS cur_value, prev.value AS prev_value,
+       cur.value - prev.value AS abs_change,
+       CASE WHEN prev.value = 0 THEN NULL
+            ELSE ROUND(((cur.value - prev.value) * 100.0 / ABS(prev.value))::numeric, 2)::float END AS pct_change
+FROM figures cur, figures prev
+WHERE cur.figure_id = %(cur_id)s AND prev.figure_id = %(prev_id)s
+"""
+
+SQL_LATEST_DOC = """
+SELECT * FROM documents
+WHERE company_id = %(company_id)s AND (has_text OR NOT %(need_text)s)
+  AND form_type = '10-Q' AND accession NOT LIKE 'financebench:%%'
+ORDER BY period_end DESC LIMIT 1
+"""
+
+# A filing for a period ('Q2 2023', 'FY 2019'). The SEC 10-Q of our bulk data comes before a
+# FinanceBench copy of the same report.
+SQL_DOC_FOR_PERIOD = """
+SELECT * FROM documents
+WHERE company_id = %(company_id)s AND period = %(period)s
+ORDER BY (accession LIKE 'financebench:%%'), has_text DESC
+LIMIT 1
+"""
+
+SQL_DOC_BY_ACCESSION = "SELECT * FROM documents WHERE accession = %(accession)s"
+
+SQL_UNSUPPORTED = """
+SELECT unsupported_reason FROM metric_tags WHERE company_id = %(company_id)s AND metric = %(metric)s
+"""
+
+
+# ============================================================================ helpers
+def fmt_value(v: float, unit: str) -> str:
+    if unit == "USD/share":
+        return f"${v:,.2f} per share"
+    a = abs(v)
+    sign = "-" if v < 0 else ""
+    if a >= 1e9:
+        return f"{sign}${a / 1e9:,.3f} billion"
+    if a >= 1e6:
+        return f"{sign}${a / 1e6:,.0f} million"
+    return f"{sign}${a:,.0f}"
+
+
+def shift_period(period: str, compare: str) -> str:
+    q, y = int(period[1]), int(period[3:])
+    if compare == "yoy":
+        return f"Q{q} {y - 1}"
+    return f"Q4 {y - 1}" if q == 1 else f"Q{q - 1} {y}"
+
+
+def figure_locator(f: dict) -> str:
+    derived = ", derived as YTD difference" if f["is_derived"] else ""
+    return (f"{f['title']} ({f['accession']}) › {f['statement']} › {f['line_label']} "
+            f"[us-gaap:{f['tag']}] › {f['period']} (three months{derived})")
+
+
+# ============================================================================ numeric path
+def lookup(conn, company_id: int, metric: str, period: str) -> tuple[Optional[dict], list[dict]]:
+    """Return (primary figure, conflicting figures). Primary = filing that covers the period."""
+    rows = conn.execute(SQL_LOOKUP, {"company_id": company_id, "metric": metric, "period": period}).fetchall()
+    if not rows:
+        return None, []
+    primary = rows[0]
+    conflicts = [r for r in rows[1:] if abs(r["value"] - primary["value"]) > 0.5 * (10 ** -6) * max(1, abs(primary["value"]))
+                 and r["value"] != primary["value"]]
+    return primary, conflicts
+
+
+def previous_figure(conn, company_id: int, metric: str, period: str, cur: dict,
+                    compare: str) -> tuple[Optional[dict], list[dict]]:
+    """The comparison figure. Year over year: the prior-year column of the same 10-Q, so a restated
+    prior year is used the way the company compares it; otherwise (or if that column is missing)
+    the filing that covers the period."""
+    if compare == "yoy":
+        same = conn.execute(SQL_SAME_FILING, {"report_id": cur["report_id"], "metric": metric,
+                                              "period": period}).fetchone()
+        if same:
+            return same, []
+    return lookup(conn, company_id, metric, period)
+
+
+def unsupported_reason(conn, company_id: int, metric: str) -> str | None:
+    """Why a company has no figure for a metric (from the tag check at ingestion), if known."""
+    row = conn.execute(SQL_UNSUPPORTED, {"company_id": company_id, "metric": metric}).fetchone()
+    return row and row["unsupported_reason"]
+
+
+def numeric_path(conn, p: ParsedQuestion, company: dict, period: str, trace: dict) -> dict:
+    out: dict = {"figures": [], "flags": []}
+    cid = company["company_id"]
+    cur, conflicts = lookup(conn, cid, p.metric, period)
+    trace["sql"] = [{"template": "SQL_LOOKUP", "params": [cid, p.metric, period], "rows": int(cur is not None) + len(conflicts)}]
+    if not cur:
+        why = unsupported_reason(conn, cid, p.metric)
+        out["missing"] = (f"{company['name']} does not report {METRICS[p.metric]['label'].lower()} "
+                          f"in its 10-Q data ({why})." if why else
+                          f"No {METRICS[p.metric]['label']} figure for {company['name']} in {period}.")
+        return out
+    out["figures"].append(cur)
+    for c in conflicts:
+        out["flags"].append(f"Conflict: {figure_locator(c)} reports {fmt_value(c['value'], c['unit'])} "
+                            f"vs primary {fmt_value(cur['value'], cur['unit'])} (restatement?)")
+    if p.compare in ("yoy", "qoq"):
+        prev_period = shift_period(period, p.compare)
+        prev, prev_conf = previous_figure(conn, cid, p.metric, prev_period, cur, p.compare)
+        trace["sql"].append({"template": "SQL_SAME_FILING / SQL_LOOKUP", "params": [cid, p.metric, prev_period],
+                             "rows": int(prev is not None)})
+        if not prev:
+            reason = " (Q4 is only in the 10-K, out of scope)" if prev_period.startswith("Q4") else ""
+            out["missing"] = f"No comparison figure for {prev_period}{reason}."
+            return out
+        out["figures"].append(prev)
+        for c in prev_conf:
+            out["flags"].append(f"Conflict: {figure_locator(c)} reports {fmt_value(c['value'], c['unit'])} "
+                                f"vs primary {fmt_value(prev['value'], prev['unit'])} (restatement?)")
+        ch = conn.execute(SQL_CHANGE, {"cur_id": cur["figure_id"], "prev_id": prev["figure_id"]}).fetchone()
+        trace["sql"].append({"template": "SQL_CHANGE", "params": [cur["figure_id"], prev["figure_id"]]})
+        out["change"] = {**ch, "from": prev_period, "to": period, "compare": p.compare}
+    return out
+
+
+def render_numeric(p: ParsedQuestion, company: dict, num: dict) -> str:
+    cur = num["figures"][0]
+    label = METRICS[p.metric]["label"]
+    s = f"{company['name']}'s {label.lower()} for {cur['period']} was {fmt_value(cur['value'], cur['unit'])} [F1]."
+    if "change" in num:
+        ch, prev = num["change"], num["figures"][1]
+        direction = "up" if ch["abs_change"] > 0 else "down" if ch["abs_change"] < 0 else "unchanged"
+        pct = f"{abs(ch['pct_change']):.1f}%" if ch["pct_change"] is not None else "n/a"
+        s += (f" That is {direction} {pct} ({fmt_value(abs(ch['abs_change']), cur['unit'])}) from "
+              f"{fmt_value(prev['value'], prev['unit'])} in {prev['period']} [F2]"
+              f" ({'year-over-year' if ch['compare'] == 'yoy' else 'quarter-over-quarter'}; computed in SQL).")
+    return s
+
+
+# ============================================================================ explanatory path
+class Claim(BaseModel):
+    text: str = Field(description="One explanatory claim, paraphrased from the passages")
+    chunk_ids: list[int] = Field(description="IDs of the passages (the number in [C<id>]) supporting this claim")
+
+
+class Explanation(BaseModel):
+    answerable: bool = Field(description="False if the passages do not actually explain what was asked")
+    claims: list[Claim]
+
+
+_EXPLAIN_SYSTEM = """You explain changes in a company's results using ONLY the passages provided from
+its SEC 10-Q filing. Every claim must cite the passage ids it comes from. Do not use outside knowledge.
+Do not state any number that is not written in a cited passage or in the provided figures. If the
+passages do not explain what is asked, set answerable=false and return no claims. Keep 2-5 claims."""
+
+
+def _rewrite_query(q: str, p: ParsedQuestion) -> str:
+    metric = METRICS[p.metric]["label"] if p.metric else ""
+    return f"{metric} {q} increase decrease primarily due to driven by compared with prior year".strip()
+
+
+def retrieve(conn, q: str, p: ParsedQuestion, report_id: int, method: str, trace: dict) -> tuple[list[dict], bool]:
+    """Search MD&A first (round 1), then the whole report with a rewritten query (round 2)."""
+    th = THRESHOLDS
+    query = q
+    passages: list[dict] = []
+    for rnd in range(1, MAX_ROUNDS + 1):
+        section = MDA if rnd == 1 else None
+        hits = search(conn, query, [report_id], method=method, k=TOP_K, section=section, trace=trace)
+        trace.setdefault("search_rounds", []).append(
+            {"round": rnd, "query": query, "section": section or "all", "method": method,
+             "top_scores": [h["score"] for h in hits]})
+        good = [h for h in hits if h["similarity"] >= th["min"]]
+        # keep the best passages seen across rounds
+        seen = {h["chunk_id"] for h in passages}
+        passages = sorted(passages + [h for h in hits if h["chunk_id"] not in seen], key=lambda h: -h["score"])[:TOP_K]
+        if hits and max(h["similarity"] for h in hits) >= th["top"] and len(good) >= MIN_PASSAGES:
+            return passages, True
+        query = _rewrite_query(q, p)
+    strong = bool(passages) and max(h["similarity"] for h in passages) >= th["top"]
+    return passages, strong
+
+
+def compose_explanation(q: str, passages: list[dict], num: dict | None, usage: llm.Usage) -> list[dict]:
+    """LLM writes claims from the retrieved passages only; code drops claims citing unknown ids."""
+    allowed = {h["chunk_id"] for h in passages}
+    ctx = "\n\n".join(f"[C{h['chunk_id']}] ({h['section']} › {h['heading']})\n{h['text']}" for h in passages)
+    figs = ""
+    if num and num.get("figures"):
+        figs = "\nFigures from the database:\n" + "\n".join(
+            f"- {f['period']}: {fmt_value(f['value'], f['unit'])}" for f in num["figures"])
+    exp = llm.parse("explain", _EXPLAIN_SYSTEM, f"Question: {q}\n{figs}\n\nPassages:\n{ctx}",
+                    Explanation, usage, max_tokens=4000)
+    if not exp.answerable:
+        return []
+    claims = []
+    for c in exp.claims:
+        ids = [i for i in c.chunk_ids if i in allowed]  # citation existence check
+        if ids:
+            claims.append({"text": c.text, "chunk_ids": ids})
+    return claims
+
+
+# ============================================================================ main entry
+def write_enabled() -> bool:
+    from . import writer
+    return writer.ENABLED
+
+
+def structured(p: ParsedQuestion) -> bool:
+    """Questions the structured path answers: one of our metrics (or a "why") for a 10-Q quarter.
+    Everything else (ratios, full years, other line items, text questions) goes to document QA."""
+    quarter = p.period is None or p.period == "latest" or p.period.startswith("Q")
+    return not p.unsupported_reason and quarter and (p.metric is not None or p.qtype == "explanatory")
+
+
+def facts_for_writer(res: dict, company: dict) -> str:
+    """The verified facts of a structured answer, each with its reference, for the answer writer."""
+    lines = []
+    for f in res["figures"]:
+        lines.append(f"[{f['ref']}] {company['name']}, {METRICS[f['metric']]['label'].lower()}, {f['period']}: "
+                     f"{fmt_value(f['value'], f['unit'])} (source: {f['locator']})")
+    ch = res.get("change")
+    if ch:
+        kind = "year over year" if ch["compare"] == "yoy" else "quarter over quarter"
+        direction = "up" if ch["abs_change"] > 0 else "down" if ch["abs_change"] < 0 else "unchanged"
+        pct = f"{abs(ch['pct_change']):.1f}%" if ch["pct_change"] is not None else "n/a"
+        unit = res["figures"][0]["unit"]
+        lines.append(f"Change from {ch['from']} to {ch['to']} ({kind}, computed in SQL): {direction} {pct} "
+                     f"({fmt_value(abs(ch['abs_change']), unit)})")
+    if res.get("claims"):
+        lines.append("Reasons given in the filing:")
+        lines += [f"- {c['text']} " + "".join(f"[C{i}]" for i in c["chunk_ids"]) for c in res["claims"]]
+    lines += [f"Assumption: {a}" for a in res["assumptions"]] + [f"Flag: {f}" for f in res["flags"]]
+    return "\n".join(lines)
+
+
+def answer(question: str, method: str = SEARCH_METHOD, document: str | None = None,
+           writer: bool | None = None) -> dict:
+    """document: accession of the filing to use (evaluation runs on FinanceBench give the document,
+    as in its "single document" setting). Without it the filing is found from the question.
+    writer: let the LLM write the final answer of the structured paths from the verified facts
+    (default: finqa.writer.ENABLED); off gives the template answer (ablation A0)."""
+    writer = write_enabled() if writer is None else writer
+    t0 = time.time()
+    usage = llm.Usage()
+    trace: dict = {"method": method}
+    conn = connect()
+    res: dict = {"question": question, "status": None, "answer": "", "assumptions": [], "flags": [],
+                 "figures": [], "citations": [], "trace": trace}
+
+    def done(status: str, text: str) -> dict:
+        res["status"], res["answer"] = status, text
+        res["usage"] = {"input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens,
+                        "llm_calls": usage.calls, "log": usage.log}
+        res["llm"] = llm.model_name()
+        res["latency_s"] = round(time.time() - t0, 3)
+        conn.close()
+        return res
+
+    # 1. parse (LLM + code validation). An LLM failure is reported, not silently replaced.
+    try:
+        with timed(trace, "llm_parse"):
+            p = parse_question(question, usage)
+    except Exception as e:
+        usage.log.append({"step": "parse", "error": str(e)[:300]})
+        return done("error", f"LLM call failed ({llm.model_name()}): {str(e)[:200]}")
+    trace["parse"] = p.model_dump()
+
+    # 2. company and filing
+    if document:
+        doc = conn.execute(SQL_DOC_BY_ACCESSION, {"accession": document}).fetchone()
+        company = conn.execute("SELECT * FROM companies WHERE company_id = %s", (doc["company_id"],)).fetchone()
+    else:
+        if not p.company:
+            return done("clarify", "Which company do you mean? Please name it or give its ticker.")
+        with timed(trace, "sql_company"):
+            matches = find_companies(conn, p.company)
+        trace["company_matches"] = [{"company_id": m["company_id"], "name": m["name"], "ticker": m["ticker"]}
+                                    for m in matches]
+        if not matches:
+            return done("abstain", f"Not enough evidence: no filings for '{p.company}' are loaded.")
+        if len(matches) > 1:
+            options = "; ".join(f"{m['name']} ({m['ticker'] or 'CIK ' + str(m['company_id'])})" for m in matches)
+            return done("clarify", f"Which company do you mean by '{p.company}'? Candidates: {options}.")
+        company = matches[0]
+        need_text = p.qtype in ("explanatory", "both") or not structured(p)
+        if not p.period or p.period == "latest":
+            with timed(trace, "sql_filing"):
+                doc = conn.execute(SQL_LATEST_DOC, {"company_id": company["company_id"], "need_text": need_text}).fetchone()
+            if not doc:
+                return done("abstain", "No filings available for this company.")
+            res["assumptions"].append(
+                f"No period given; assumed the latest available quarter ({doc['period']}, filed {doc['filed']}).")
+        else:
+            with timed(trace, "sql_filing"):
+                doc = conn.execute(SQL_DOC_FOR_PERIOD, {"company_id": company["company_id"], "period": p.period}).fetchone()
+            if not doc:
+                why = f" ({p.unsupported_reason})" if p.unsupported_reason else ""
+                return done("abstain", f"Not enough evidence: no filing of {company['name']} for {p.period} is loaded{why}.")
+    period = doc["period"]
+    trace["period"], trace["report_id"] = period, doc["report_id"]
+
+    # document QA: everything the structured data cannot answer
+    if (document and document.startswith("financebench:")) or not structured(p):
+        trace["route"] = ["document"]
+        if not doc["has_text"]:
+            return done("abstain", f"Not enough evidence: the text of {doc['title']} is not indexed.")
+        try:
+            out = answer_from_document(conn, question, doc["report_id"], usage, trace, search_terms=p.search_terms)
+        except Exception as e:
+            usage.log.append({"step": "docqa", "error": str(e)[:300]})
+            return done("error", f"LLM call failed: {str(e)[:200]}")
+        res["flags"] += out["flags"]
+        res["citations"] = out["citations"]
+        return done(out["status"], out["text"])
+
+    # 2. route
+    route = {"numeric": ["numeric"], "explanatory": ["explanatory"], "both": ["numeric", "explanatory"]}[p.qtype]
+    if p.qtype == "explanatory" and p.metric:
+        route = ["numeric", "explanatory"]  # attach the figures being explained (plan 11.5)
+        if p.compare == "none":
+            p.compare = "yoy"
+    trace["route"] = route
+    parts: list[str] = []
+
+    # 3a. numeric
+    num = None
+    if "numeric" in route:
+        with timed(trace, "sql_figures"):
+            num = numeric_path(conn, p, company, period, trace)
+        res["flags"] += num["flags"]
+        for i, f in enumerate(num["figures"], 1):
+            res["figures"].append({"ref": f"F{i}", "value": f["value"], "unit": f["unit"], "period": f["period"],
+                                   "metric": f["metric"], "locator": figure_locator(f), "url": f["url"]})
+        if num.get("missing"):
+            if p.qtype == "numeric":
+                return done("abstain", f"Not enough evidence: {num['missing']}")
+            res["flags"].append(num["missing"])
+        elif num["figures"]:
+            parts.append(render_numeric(p, company, num))
+        if "change" in num:
+            res["change"] = num["change"]
+
+    # 3b. explanatory
+    if "explanatory" in route:
+        if not doc["has_text"]:
+            return done("abstain", f"Not enough evidence: the text of the {period} filing is not indexed.")
+        passages, strong = retrieve(conn, question, p, doc["report_id"], method, trace)
+        # 4. check evidence
+        if not strong:
+            closest = "; ".join(h["locator"] for h in passages[:3])
+            msg = f"Not enough evidence in the {period} filing to explain this (best score below threshold). Closest passages: {closest}"
+            if parts:
+                res["flags"].append(msg)
+                return done("partial", " ".join(parts) + "\n\n" + msg)
+            return done("abstain", msg)
+        try:
+            with timed(trace, "llm_explain"):
+                claims = compose_explanation(question, passages, num, usage)
+        except Exception as e:
+            usage.log.append({"step": "explain", "error": str(e)[:300]})
+            return done("error", (" ".join(parts) + "\n\n" if parts else "") + f"LLM call failed: {str(e)[:200]}")
+        if not claims:
+            msg = "The retrieved passages do not explain this; abstaining on the 'why' part."
+            return done("partial" if parts else "abstain", (" ".join(parts) + "\n\n" if parts else "") + msg)
+        cited = {}
+        for h in passages:
+            cited[h["chunk_id"]] = h
+        lines = []
+        for c in claims:
+            refs = "".join(f"[C{i}]" for i in c["chunk_ids"])
+            lines.append(f"- {c['text']} {refs}")
+        parts.append("Reasons given in the filing:\n" + "\n".join(lines))
+        used = {i for c in claims for i in c["chunk_ids"]}
+        res["citations"] = [{"ref": f"C{h['chunk_id']}", "locator": h["locator"], "score": h["score"],
+                             "url": h["url"], "text": h["text"][:500]} for h in passages if h["chunk_id"] in used]
+        res["claims"] = claims
+
+    # 5. output: the template answer, or the writer's version of the same facts if it passes the checks
+    text = "\n\n".join(parts)
+    res["answer_template"] = text
+    if writer:
+        with timed(trace, "llm_writer"):
+            text = write(question, facts_for_writer(res, company), usage, trace) or text
+    return done("answered", text)
+
+
+def render(res: dict) -> str:
+    out = [res["answer"]]
+    if res["assumptions"]:
+        out.append("Assumptions: " + " ".join(res["assumptions"]))
+    if res["flags"]:
+        out.append("Flags: " + " | ".join(res["flags"]))
+    if res["figures"] or res["citations"]:
+        out.append("Sources:")
+        for f in res["figures"]:
+            out.append(f"  [{f['ref']}] {f['locator']}")
+        for c in res["citations"]:
+            out.append(f"  [{c['ref']}] {c['locator']} (score {c['score']})")
+    u = res.get("usage", {})
+    out.append(f"[llm={res.get('llm')} status={res['status']} latency={res.get('latency_s')}s llm_calls={u.get('llm_calls', 0)} "
+               f"tokens={u.get('input_tokens', 0)}+{u.get('output_tokens', 0)}]")
+    return "\n".join(out)

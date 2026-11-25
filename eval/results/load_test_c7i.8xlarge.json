@@ -1,0 +1,23 @@
+[
+ {
+  "users": 1,
+  "requests": 2483,
+  "per_second": 82.8,
+  "median_ms": 11,
+  "p95_ms": 17
+ },
+ {
+  "users": 10,
+  "requests": 8540,
+  "per_second": 284.5,
+  "median_ms": 34,
+  "p95_ms": 46
+ },
+ {
+  "users": 50,
+  "requests": 6667,
+  "per_second": 221.5,
+  "median_ms": 206,
+  "p95_ms": 322
+ }
+]

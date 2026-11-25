@@ -1,0 +1,64 @@
+# The whole service on one machine (your laptop or an EC2 instance):
+#   docker compose up -d --build                                 start Postgres, the API and the frontend
+#   docker compose run --rm api python -m finqa.ingest --offline  build the database from data/raw
+# Frontend: http://localhost:8501   API: http://localhost:8080/docs
+# (change the host ports with API_PORT / FRONTEND_PORT if they are taken)
+# API keys are read from .env (see .env.example).
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: finqa
+      POSTGRES_PASSWORD: finqa
+      POSTGRES_DB: finqa
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finqa"]
+      interval: 2s
+      retries: 30
+
+  api:
+    build: .
+    image: finqa
+    command: uvicorn api:app --host 0.0.0.0 --port 8080
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finqa:finqa@db:5432/finqa
+      FINQA_OPENAI_URL: http://ollama:11434/v1   # local LLM server, if started (profile "ollama")
+      FINQA_LOCAL_CONTEXT: "16384"               # = OLLAMA_CONTEXT_LENGTH below; longer prompts are refused, not cut
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - ./data:/app/data   # raw SEC files, needed by ingestion
+      - ./eval:/app/eval   # experiment results are written to the host
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: finqa   # same image as the api, built by the api service
+    command: streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    environment:
+      FINQA_API_URL: http://api:8080
+    ports:
+      - "${FRONTEND_PORT:-8501}:8501"
+    depends_on:
+      - api
+
+  # Optional: Qwen on this machine's CPU (no API).  docker compose --profile ollama up -d ollama
+  # then pull a model once:  docker compose exec ollama ollama pull qwen2.5:3b-instruct
+  ollama:
+    image: ollama/ollama:0.6.2
+    profiles: ["ollama"]
+    environment:
+      OLLAMA_CONTEXT_LENGTH: "16384"   # default is 2048, which would cut the prompts of document QA
+    volumes:
+      - ollama:/root/.ollama
+
+volumes:
+  pgdata:
+  ollama:

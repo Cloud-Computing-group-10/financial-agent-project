@@ -1,1 +1,20 @@
-sqlite3
+# Core: workflow, API, frontend, ingestion
+anthropic>=2.8
+pydantic>=2
+requests
+python-dotenv
+beautifulsoup4
+lxml
+rank_bm25
+fastembed>=0.9          # sentence embeddings with ONNX on the CPU (no torch needed)
+psycopg[binary]>=3.2
+pgvector>=0.4
+fastapi
+uvicorn
+streamlit>=1.40
+pyarrow                 # reads the Parquet output of the Spark job
+
+# Development
+pytest
+pypdf[crypto]>=5    # FinanceBench documents are PDFs
+fonttools          # lets pypdf read all PDF fonts

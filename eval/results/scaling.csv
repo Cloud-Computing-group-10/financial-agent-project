@@ -1,0 +1,13 @@
+job,cores,seconds,rate
+text,1,170,14
+text,2,90,27
+text,4,53,47
+text,8,33,75
+text,16,22,114
+text,32,20,125
+facts,1,284.8,
+facts,2,157.3,
+facts,4,88.3,
+facts,8,55.0,
+facts,16,40.6,
+facts,32,40.6,

@@ -1,0 +1,71 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xltabular}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,fit,backgrounds}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{placeins}
+\usepackage[hidelinks]{hyperref}
+\usepackage[nameinlink,capitalise]{cleveref}
+
+\emergencystretch=2em
+% keep figures and tables inside the subsection that introduces them
+\let\oldsubsection\subsection
+\renewcommand{\subsection}{\FloatBarrier\oldsubsection}
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parskip}{4pt}
+\captionsetup{font=small,labelfont=bf}
+
+\definecolor{wf}{HTML}{1F5FA8}    % our workflow (A)
+\definecolor{rag}{HTML}{8A94A3}   % simple RAG (C)
+\definecolor{cb}{HTML}{D08A2E}    % closed book (N)
+\definecolor{llmbox}{HTML}{FBE7C6}
+
+\lstset{basicstyle=\ttfamily\small,breaklines=true,columns=fullflexible,
+        frame=single,rulecolor=\color{gray!40},backgroundcolor=\color{gray!6}}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+% Placeholder for a screenshot that will be added later:
+%   \screenshot{what to capture}{caption}{label}
+% Replace it with \includegraphics[width=\linewidth]{figures/<file>} once the image exists.
+\newcommand{\screenshot}[3]{%
+  \begin{figure}[ht]\centering
+  \fbox{\parbox[c][35mm][c]{0.8\linewidth}{\centering\small\color{gray}%
+    \textbf{Screenshot to add:}\\[2pt] #1}}
+  \caption{#2}\label{#3}
+  \end{figure}}
+
+\begin{document}
+
+\input{sections/00_title}
+
+\tableofcontents
+\clearpage
+
+\input{sections/01_introduction}
+\input{sections/02_design}
+\input{sections/03_implementation}
+\input{sections/04_experiments}
+\input{sections/05_results}
+\input{sections/06_conclusion}
+
+\clearpage
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\input{sections/07_ai_declaration}
+
+\end{document}
