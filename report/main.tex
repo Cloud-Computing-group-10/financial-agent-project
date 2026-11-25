@@ -7,6 +7,7 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{tabularx}
+\usepackage{xltabular}
 \usepackage{enumitem}
 \usepackage{xcolor}
 \usepackage{caption}
@@ -15,10 +16,14 @@
 \usetikzlibrary{positioning,arrows.meta,fit,backgrounds}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
+\usepackage{placeins}
 \usepackage[hidelinks]{hyperref}
 \usepackage[nameinlink,capitalise]{cleveref}
 
 \emergencystretch=2em
+% keep figures and tables inside the subsection that introduces them
+\let\oldsubsection\subsection
+\renewcommand{\subsection}{\FloatBarrier\oldsubsection}
 \setlist{itemsep=2pt,topsep=4pt}
 \setlength{\parskip}{4pt}
 \captionsetup{font=small,labelfont=bf}
@@ -32,6 +37,16 @@
         frame=single,rulecolor=\color{gray!40},backgroundcolor=\color{gray!6}}
 
 \newcommand{\code}[1]{\texttt{#1}}
+
+% Placeholder for a screenshot that will be added later:
+%   \screenshot{what to capture}{caption}{label}
+% Replace it with \includegraphics[width=\linewidth]{figures/<file>} once the image exists.
+\newcommand{\screenshot}[3]{%
+  \begin{figure}[ht]\centering
+  \fbox{\parbox[c][35mm][c]{0.8\linewidth}{\centering\small\color{gray}%
+    \textbf{Screenshot to add:}\\[2pt] #1}}
+  \caption{#2}\label{#3}
+  \end{figure}}
 
 \begin{document}
 
