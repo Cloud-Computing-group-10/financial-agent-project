@@ -56,10 +56,12 @@ def document_url(company_id: int, accession: str, document: str) -> str:
     return f"https://www.sec.gov/Archives/edgar/data/{company_id}/{accession.replace('-', '')}/{document}"
 
 
-def build_manifest(conn, submissions_zip: Path, manifest: Path) -> int:
-    """Write the manifest and store each 10-Q's document URL in documents.url. Returns the row count."""
+def build_manifest(conn, submissions_zip: Path, manifest: Path, since: str | None = None) -> int:
+    """Write the manifest and store each 10-Q's document URL in documents.url. Returns the row count.
+    since: only filings filed on or after this date (an update run)."""
     wanted: dict[int, set[str]] = defaultdict(set)  # company_id -> accessions without text
-    for row in conn.execute("SELECT company_id, accession FROM documents WHERE NOT has_text"):
+    for row in conn.execute("SELECT company_id, accession FROM documents WHERE NOT has_text"
+                            " AND (%(since)s::date IS NULL OR filed >= %(since)s::date)", {"since": since}):
         wanted[row["company_id"]].add(row["accession"])
 
     rows, seen = [], set()
@@ -182,11 +184,12 @@ if __name__ == "__main__":
     parser.add_argument("--submissions", default=str(BULK_DIR / "submissions.zip"))
     parser.add_argument("--manifest", default=str(TEXT_DIR / "manifest.csv"))
     parser.add_argument("--raw", default=str(TEXT_DIR / "raw"), help="where the downloaded documents go")
+    parser.add_argument("--since", help="manifest: only filings filed on or after this date (YYYY-MM-DD)")
     args = parser.parse_args()
 
     if args.step == "manifest":
         with connect() as conn:
-            n = build_manifest(conn, Path(args.submissions), Path(args.manifest))
+            n = build_manifest(conn, Path(args.submissions), Path(args.manifest), args.since)
         print(f"manifest: {n} filings in {(n + BATCH_SIZE - 1) // BATCH_SIZE} batches -> {args.manifest}")
     else:
         download(Path(args.manifest), Path(args.raw))

@@ -4,27 +4,35 @@ We built a question-answering agent over SEC filings in which the LLM only reads
 phrases the answer, while SQL, search and code find every number, compute every change and check
 every citation. On AWS, a Spark pipeline on one EC2 instance loaded the figures and 10-Q text of
 every SEC filer since 2019: 9,695 companies, 140,436 10-Qs, 3.0 million figures and 4.55 million
-passages, for about \$20.
+passages, for about \$20. An update run adds each day's new filings in minutes.
 
-The experiments show three things. First, the workflow is much more accurate than simple RAG on
-quarterly numbers (96\% against 70\% with Claude Haiku 5.5), and the gap is largest for small local
-models (84\% against 38\% with Qwen2.5-7B on a laptop). A closed-book baseline confirms that
-retrieval is needed at all: without it Haiku answers only 30\% of our questions and 23\% of
-FinanceBench, with no source a reader can check. Second, on the external FinanceBench
-benchmark the workflow is ahead of simple RAG in every question type with Haiku (69\% against 56\%)
-and gives fewer wrong answers, but its structured answer format is too demanding for small models.
-Third, our own layer is fast (about 10 ms per question, more than 200 questions per second on one
-process), and the Spark jobs scale to the physical cores of the machine, so the LLM and the SEC
-download limit are the only real bottlenecks.
+The experiments show four things. First, the workflow is much more accurate than simple RAG on
+quarterly numbers (96\% against 69\% with Claude Haiku 5.5, identical over three runs), and the gap
+is largest for small local models (84\% against 38\% with Qwen2.5-7B on a laptop). Second, on the
+external FinanceBench benchmark the workflow is ahead of simple RAG in every question type with Haiku
+(69\% against 54\%), and version 2, which always gives the model the three financial statements,
+raises this to 75\% by turning declines into correct answers, with about as many wrong answers as
+before. Its
+structured answer format is still too demanding for small models. Third, a closed-book baseline shows
+that retrieval is needed: without it Haiku answers 31\% of our questions and 21\% of FinanceBench, with
+no source a reader can check. The much larger Opus 5.5, however, answers 63\% of FinanceBench and
+62\% of our questions without any filing: it remembers the figures of large companies, so scores on
+filings from before a model's cut-off must be compared with a closed-book baseline, and the value of
+retrieval lies in newer filings, smaller companies and checkable citations. Fourth, our own layer is fast (about 10 ms per question, more than 200 questions
+per second in one process), the Spark jobs scale to the physical cores of the machine, and even the
+busiest filing day of the year can, by our estimate from the measured rates, be added in under half
+an hour on the smallest instance. The LLM
+and the SEC download limit are the only real bottlenecks.
 
 \paragraph{Limitations.} About 27\% of 10-Qs have no MD\&A heading that our section detector
 recognises, so they have no text. Quarters are calendar quarters, so for companies with a different
 fiscal year ``Q2'' means April to June. Passages from 10-Q HTML leave out tables, so ratio questions
 on bulk 10-Qs usually decline. Document QA checks that the inputs of a calculation are printed in the
-filing, but not that they are the right lines. Free-text grades come from an LLM grader that agreed
-with a stronger model on 90\% of a sample; a check by a person is still to do.
+filing, but not that they are the right lines, and analysts' metrics such as the quick ratio have
+several definitions. Version 2 was motivated by FinanceBench failures, so its FinanceBench score is
+somewhat optimistic. Free-text grades come from an LLM judge that agrees with a stronger model on 89\% of
+a sample of 300 ($\kappa = 0.84$); a check by a person is still to do.
 
 \paragraph{Next steps.} Before the final report we plan to (1) check the grader sample by hand,
-(2) give small models a simpler document QA format, (3) run the load test on smaller instance types
-(t3.large, c7i.xlarge) and with several API workers behind a load balancer, and (4) improve the
-MD\&A detector and keep tables in 10-Q passages.
+(2) run the HTTP load test with up to 1,000 users on three instance sizes, (3) give small models a
+simpler document QA format, and (4) improve the MD\&A detector and keep tables in 10-Q passages.

@@ -193,7 +193,7 @@ SEC publishes `companyfacts.zip` (about 1.4 GB zipped): one companyfacts JSON pe
 .venv/bin/python -m finqa.load_bulk facts data/bulk/parquet
 ```
 
-`load_bulk` skips companies already in the database. You can try the job on the pilot files: `--input data/raw --first-year 2022 --last-year 2023` gives the same 850 figures as the pilot ingest. Add `--cores N` to use N cores (default: all).
+`load_bulk` loads new companies completely; for companies already in the database it only adds the 10-Qs filed after the newest filing it has (an update run, 5.5). You can try the job on the pilot files: `--input data/raw --first-year 2022 --last-year 2023` gives the same 850 figures as the pilot ingest. Add `--cores N` to use N cores (default: all).
 
 ### 5.3 Bulk text (every filer's 10-Qs) with Spark
 
@@ -221,6 +221,15 @@ The FinanceBench test set (section 8) asks about 84 filings, mostly 10-Ks. They 
 ```
 
 `finqa/pdf_docs.py` adds one `documents` row per filing (accession `financebench:<doc_name>`, period from the name, e.g. "FY 2018" or "Q2 2023" in the company's own fiscal labels) and splits every PDF page into pieces of about 150 words. Unlike the 10-Q passages, **tables are kept**, because many FinanceBench questions need numbers from the statements. The page text is cached next to each PDF. PDF parsing and embedding of all 84 filings takes about 40 minutes on a laptop.
+
+
+### 5.5 Updates: new filings every day
+
+`cloud/update.sh` adds the 10-Qs filed since the last load and times every step (`eval/results/update_<date>.csv`): it fetches the bulk files again, reruns the facts job (under a minute), loads only the new filings, writes a manifest with `--since`, and downloads, splits, embeds and loads only those. On 26 November 2026 it added 92 new 10-Qs in 5 minutes. `eval/filings_per_day.py` counts the 10-Qs the SEC receives per day: median 16, at most 718, so even the busiest day fits in a nightly run on a small instance.
+
+```bash
+nohup bash cloud/update.sh > data/bulk/update.log 2>&1 &
+```
 
 
 ## 6. Asking a question: what happens step by step
@@ -307,6 +316,7 @@ A: 3M's FY2018 capital expenditure (purchases of property, plant and equipment) 
 ```
 
 1. **Search:** hybrid search (BM25 + embeddings) over the passages of that filing, top 10. The query is the parser's `search_terms` plus the question, because long questions with instructions ("answer as an equity analyst, using the cash flow statement ...") retrieve poorly on their own.
+   **Version 2** (the default; `statements=False` gives version 1) also adds every passage of the filing's three primary statements: balance sheet, income statement and cash-flow statement. A statement page is mostly numbers, so search often missed it although it holds the inputs of almost every ratio. Code finds the pages without an LLM (`find_statements()`): a statement title in the first lines (matched with spaces removed, because PDF text breaks words), at least 25 numbers on the page, and all three statements within 8 pages of each other. On FinanceBench this raised Haiku from 69% to 75%.
 2. **LLM:** the prompt (`SYSTEM` in docqa.py) asks for an answer with claims that cite passage ids, and says `answerable=false` if the passages don't contain what is needed. **The LLM never computes:** for a calculation it returns the inputs, each as printed in a passage with that passage's id, plus a formula over the input names, e.g. `(ap_2016 + ap_2017) / 2 / cogs_2017 * 365`.
 3. **Code checks and computes:**
    - Claims that cite a passage that wasn't retrieved are dropped.
@@ -356,10 +366,14 @@ eval/
   questions_v2.jsonl           our question set: 50 test + 10 dev questions, 10 companies (8.1)
   answer_key_v2.jsonl          its answer key, every answer checked against the filing
   build_answer_key.py          builds + verifies answer_key_v2.jsonl
-  run_experiments.py           systems A/A0/C/N x models on v2 and FinanceBench; grading; summary (8.3)
+  run_experiments.py           systems A/A0/A2/C/N x models on v2 and FinanceBench; grading; summary (8.3)
   judge.py                     LLM grader for free-text answers
   retrieval_eval.py            BM25 vs semantic vs hybrid search, no LLM (8.5)
-  load_test.py                 concurrent users against one instance, no LLM (E4)
+  load_test.py                 concurrent users against the pipeline in one process, no LLM (E4)
+  stub_api.py                  the HTTP API with a stand-in LLM, for the HTTP load test (E4)
+  http_load_test.py            1-1,000 users against the HTTP API (E4)
+  filings_per_day.py           10-Qs the SEC receives per day (E6)
+  error_analysis.py            FinanceBench: workflow v1 vs v2, by the causes in fb_error_causes.json
   summarize.py                 all result tables -> RESULTS_v2.md
   RESULTS_v2.md                the final result tables
   results/                     every answer and grade of the reported runs (results/archive: old MVP runs, not in git)
@@ -400,8 +414,9 @@ All 60 are verified.
 The systems, as in the experiment plan (design plan 16.2):
 - **A** our workflow (`finqa.workflow.answer`)
 - **A0** the same workflow with the template answer instead of the LLM-written one (ablation: what the writer costs in tokens and latency, and whether it ever loses a number)
+- **A2** version 2 of the workflow: document QA also gets the filing's three financial statements (section 6). `A` is version 1, as first run
 - **C** the top 10 passages of the correct filing (same index and hybrid search as document QA) + the question, with no parsing, routing, code arithmetic or checks (`finqa/rag_baseline.py`)
-- **N** closed book: only the question, no filing and no retrieval (`finqa/closed_book.py`). It shows what the model knows from its training data alone, and so why retrieval is needed: it can't know filings after its cutoff and can't cite a filing it never saw. Results are in `eval/RESULTS_v2.md` (Haiku: 30% on our test set, 23% on FinanceBench).
+- **N** closed book: only the question, no filing and no retrieval (`finqa/closed_book.py`). It shows what the model knows from its training data alone, and so why retrieval is needed: it can't know filings after its cutoff and can't cite a filing it never saw. Results are in `eval/RESULTS_v2.md` (Haiku: 31% on our test set, 21% on FinanceBench). Opus 5.5 closed book gets 62-63% on both, because it remembers the reported figures of large companies.
 
 C always gets the correct filing, which favours it. (The plan also had a baseline B, the whole filing plus the question. It was dropped: it is the expensive cell and mostly measures how many tokens fit into a context window.)
 
@@ -413,7 +428,7 @@ C always gets the correct filing, which favours it. (The plan also had a baselin
 .venv/bin/python eval/run_experiments.py run --set financebench --system C --llm hkust
 ```
 
-Options: `--split test|dev`, `--limit N`, `--sample N` (a fixed random sample, seed 0, the same for every system). Every answer is appended to `eval/results/<set>/<system>__<model>.jsonl` right away, so a stopped run continues where it stopped and nothing is paid twice. Run the experiments where the cloud database is (or through an SSH tunnel to it, see docs/CLOUD.md), after the bulk pipeline has finished, so latency is not distorted by Spark.
+Options: `--split test|dev`, `--limit N`, `--sample N` (a fixed random sample, seed 0, the same for every system), `--repeat N` (run number: runs 2, 3, ... are saved as `__r2`, `__r3` next to run 1; every Haiku combination ran three times for the error bars). Every answer is appended to `eval/results/<set>/<system>__<model>.jsonl` right away, so a stopped run continues where it stopped and nothing is paid twice. Run the experiments where the cloud database is (or through an SSH tunnel to it, see docs/CLOUD.md), after the bulk pipeline has finished, so latency is not distorted by Spark.
 
 ### 8.4 Grading and summary
 
@@ -427,11 +442,11 @@ Options: `--split test|dev`, `--limit N`, `--sample N` (a fixed random sample, s
 
 `grade` writes `graded_*.jsonl` next to each result file:
 - **Numbers** (lookup, change, paraphrase, latest): graded by code. The gold value must be in the answer to the precision the answer states ("$8.3 billion" is right for $8,325 million, "$8.4 billion" is not). For changes the percentage must also be right (±0.15 points or the stated precision).
-- **"Why" and FinanceBench answers:** graded by an LLM grader (`eval/judge.py`, one fixed model for every system, default `claude-haiku-5-5`) against the reason or gold answer: correct, incorrect or declined. `agreement` regrades 60 of them with a stronger model (54/60 agree with Sonnet 5.5) and writes `eval/results/grader_check.csv` for a person to check.
+- **"Why" and FinanceBench answers:** graded by an LLM grader (`eval/judge.py`, one fixed model for every system, default `claude-haiku-5-5`) against the reason or gold answer: correct, incorrect or declined. `agreement --limit 300` regrades a random sample with a stronger model (Sonnet 5.5), prints the agreement, Cohen's kappa and the confusion matrix (`eval/results/grader_agreement.json`), and writes `eval/results/grader_check.csv` for a person to check.
 - **Should-decline questions:** system A must return abstain or clarify. For C and N, the grader decides whether the answer declines.
 - **Declines of N on number questions** are recognised by phrases like "I don't have", so they count as declined, not wrong.
 
-`eval/summarize.py` turns all result files (E1 to E5) into `eval/RESULTS_v2.md`.
+`eval/summarize.py` turns all result files (E1 to E6) into `eval/RESULTS_v2.md`: for every combination the number of runs, accuracy mean ± std over the runs, a 95% bootstrap interval over the questions, and correct, declined and wrong answers.
 
 `summary` prints per system and model: accuracy, declines where they were expected, declines where they were not, median latency and tokens, then accuracy per category.
 

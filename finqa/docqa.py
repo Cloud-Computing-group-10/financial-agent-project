@@ -10,6 +10,7 @@ a passage we retrieved, and the system declines when the passages do not answer 
 from __future__ import annotations
 
 import ast
+import itertools
 import operator
 import re
 from typing import Optional
@@ -17,10 +18,27 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from . import llm
-from .search import search
+from .search import locator, search
 from .timing import timed
 
 TOP_K = 10  # statements are spread over several page pieces, so more passages than for "why" questions
+
+# Version 2: the three primary financial statements are always given to the LLM, next to the search
+# results. Search alone often missed them: a statement page is mostly numbers, so it matches a
+# question's words poorly. Titles are matched with all whitespace removed, because PDF text often
+# breaks words ("Balance Shee\nt"). A statement page also has many numbers, and the three statements
+# sit within a few pages of each other, which rules out tables of contents and the MD&A.
+STATEMENT_TITLE = re.compile(r"(?<!comprehensive)(balancesheet|statements?of(?:consolidated)?"
+                             r"(?:financialposition|operations|income|earnings|cashflow)|incomestatement|cashflowsstatement)")
+BIG_NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+|\d{3,}")
+MIN_NUMBERS = 25     # numbers on a statement page
+MAX_SPAN = 8         # the statements lie within this many pages (or sections) of each other
+
+SQL_FILING_PASSAGES = """
+SELECT c.chunk_id, c.report_id, c.section, c.heading, c.ordinal, c.text, d.accession, d.title, d.period, d.url
+FROM chunks c JOIN documents d USING (report_id)
+WHERE c.report_id = %(report_id)s ORDER BY c.ordinal
+"""
 
 
 class Claim(BaseModel):
@@ -86,15 +104,57 @@ def fmt_result(x: float) -> str:
     return f"{x:,.2f}" if abs(x) < 1e6 else f"{x:,.0f}"
 
 
+# ---------------------------------------------------------------------------- statements
+def statement_kind(head: str) -> str | None:
+    """'balance', 'income' or 'cash' if the start of a page is a statement title, else None."""
+    m = STATEMENT_TITLE.search(re.sub(r"\s+", "", head).lower())
+    if not m:
+        return None
+    t = m.group(1)
+    return "balance" if ("balance" in t or "position" in t) else "cash" if "cash" in t else "income"
+
+
+def find_statements(groups: list[list[dict]]) -> list[int]:
+    """Indexes of the groups (pages or sections, in document order) that hold the balance sheet, the
+    income statement and the cash-flow statement: the earliest set that lies within MAX_SPAN groups."""
+    candidates: dict[str, list[int]] = {}
+    for i, pieces in enumerate(groups):
+        kind = statement_kind(pieces[0]["text"][:300])
+        if kind and len(BIG_NUMBER.findall(" ".join(p["text"] for p in pieces))) >= MIN_NUMBERS:
+            candidates.setdefault(kind, []).append(i)
+    if not candidates:
+        return []
+    sets = [s for s in itertools.product(*candidates.values()) if max(s) - min(s) <= MAX_SPAN]
+    return sorted(min(sets, key=min)) if sets else []
+
+
+def statement_passages(conn, report_id: int) -> list[dict]:
+    """Every passage of the filing's three primary statements (empty if they are not found)."""
+    groups: dict[str, list[dict]] = {}
+    for row in conn.execute(SQL_FILING_PASSAGES, {"report_id": report_id}).fetchall():
+        groups.setdefault(row["section"], []).append(row)  # dicts keep the document order
+    ordered = list(groups.values())
+    return [{**p, "score": None, "method": "statement", "locator": locator(p)}
+            for i in find_statements(ordered) for p in ordered[i]]
+
+
 # ---------------------------------------------------------------------------- path
 def answer_from_document(conn, question: str, report_id: int, usage: llm.Usage, trace: dict,
-                         method: str = "hybrid", search_terms: str | None = None) -> dict:
+                         method: str = "hybrid", search_terms: str | None = None,
+                         statements: bool = True) -> dict:
     """{"status", "text", "citations", "flags"} for one filing. search_terms (from the parse step)
-    are the words a filing uses; long questions with instructions retrieve poorly on their own."""
+    are the words a filing uses; long questions with instructions retrieve poorly on their own.
+    statements: also give the three primary financial statements (version 2; False is version 1)."""
     query = f"{search_terms}\n{question}" if search_terms else question
     passages = search(conn, query, [report_id], method=method, k=TOP_K, trace=trace)
     trace["docqa"] = {"report_id": report_id, "method": method, "query": query[:300],
                       "top_scores": [p["score"] for p in passages]}
+    if statements:
+        with timed(trace, "sql_statements"):
+            seen = {p["chunk_id"] for p in passages}
+            extra = [p for p in statement_passages(conn, report_id) if p["chunk_id"] not in seen]
+        passages += extra
+        trace["docqa"]["statement_passages"] = len(extra)
     if not passages:
         return {"status": "abstain", "text": "Not enough evidence: the filing has no indexed text.", "citations": [], "flags": []}
 

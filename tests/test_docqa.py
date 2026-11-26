@@ -3,7 +3,7 @@ from datetime import date
 
 import pytest
 
-from finqa.docqa import evaluate, printed_in
+from finqa.docqa import evaluate, find_statements, printed_in, statement_kind
 from finqa.parse import ParsedQuestion, find_period
 from finqa.pdf_docs import document_row, pdf_passages
 from finqa.workflow import structured
@@ -53,3 +53,26 @@ def test_router_sends_only_quarterly_metrics_and_whys_to_the_structured_path():
     assert not structured(ParsedQuestion(**q, metric="net_sales", period="FY 2018"))   # annual: 10-K
     assert not structured(ParsedQuestion(**q, period="Q2 2023"))                       # capex, ratios ...
     assert not structured(ParsedQuestion(**q, metric="net_sales", period="Q2 2023", unsupported_reason="ratio"))
+
+
+def _page(title, numbers=30):
+    """One page as a group of passages: a title, then many statement lines."""
+    return [{"text": f"Acme Inc\n{title}\n" + "\n".join(f"Item {i} {1000 + i:,}" for i in range(numbers))}]
+
+
+def test_find_statements_picks_the_three_statements_together():
+    pages = [_page("Table of Contents Consolidated Balance Sheets 45", numbers=0),  # index: few numbers
+             _page("Management's discussion: consolidated statements of operations data"),  # title not at the top
+             _page("Consolidated Statements of Operations"),
+             _page("Consolidated Statements of Comprehensive Income"),             # not one of the three
+             _page("Consolidated Balance Shee\nt"),                                # PDF broke the word
+             _page("CONSOLIDATED STATEMENTS OF CASH FLOWS"),
+             *[_page("Notes") for _ in range(10)],
+             _page("Condensed consolidating balance sheet"),                       # far away: not chosen
+             ]
+    pages[1][0]["text"] = "Overview of results\n" * 20 + pages[1][0]["text"]
+    assert statement_kind(pages[2][0]["text"]) == "income"
+    assert statement_kind(pages[3][0]["text"]) is None
+    assert statement_kind(pages[4][0]["text"]) == "balance"
+    assert find_statements(pages) == [2, 4, 5]
+    assert find_statements([_page("Notes")]) == []

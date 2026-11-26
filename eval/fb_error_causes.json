@@ -1,0 +1,11 @@
+{"_doc": "Cause of every wrong or declined FinanceBench answer of the workflow, version 1 (Haiku, run 1), assigned by hand after reading the answer, the gold answer and the evidence page. Used by eval/error_analysis.py.",
+ "statement not retrieved": ["financebench_id_06655", "financebench_id_07966", "financebench_id_04735", "financebench_id_00540", "financebench_id_10420", "financebench_id_10130", "financebench_id_04103", "financebench_id_00711", "financebench_id_10499", "financebench_id_04412", "financebench_id_03849", "financebench_id_04980", "financebench_id_03620", "financebench_id_06741"],
+ "other page not retrieved": ["financebench_id_00566", "financebench_id_00941", "financebench_id_00476", "financebench_id_00746", "financebench_id_01902", "financebench_id_01911", "financebench_id_00283", "financebench_id_01484", "financebench_id_00521"],
+ "metric not meaningful for the company": ["financebench_id_00723", "financebench_id_00206"],
+ "formula could not be evaluated": ["financebench_id_03718"],
+ "different definition than the gold answer": ["financebench_id_00807", "financebench_id_00799", "financebench_id_00005", "financebench_id_00080", "financebench_id_00499", "financebench_id_00790", "financebench_id_00215", "financebench_id_03473", "financebench_id_02119"],
+ "rounding or grading strictness": ["financebench_id_04672", "financebench_id_05718"],
+ "wrong line item or scope": ["financebench_id_00460", "financebench_id_01328"],
+ "wrong reasoning or conclusion": ["financebench_id_01226", "financebench_id_00678", "financebench_id_00651", "financebench_id_00216", "financebench_id_00585"],
+ "incomplete list": ["financebench_id_01009", "financebench_id_02416"]
+}

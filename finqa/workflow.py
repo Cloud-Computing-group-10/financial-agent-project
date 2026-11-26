@@ -273,16 +273,18 @@ def facts_for_writer(res: dict, company: dict) -> str:
 
 
 def answer(question: str, method: str = SEARCH_METHOD, document: str | None = None,
-           writer: bool | None = None) -> dict:
+           writer: bool | None = None, statements: bool = True) -> dict:
     """document: accession of the filing to use (evaluation runs on FinanceBench give the document,
     as in its "single document" setting). Without it the filing is found from the question.
     writer: let the LLM write the final answer of the structured paths from the verified facts
-    (default: finqa.writer.ENABLED); off gives the template answer (ablation A0)."""
+    (default: finqa.writer.ENABLED); off gives the template answer (ablation A0).
+    statements: on the document path, also give the LLM the filing's three primary statements
+    (version 2 of the workflow); off is version 1, as in the first experiments."""
     writer = write_enabled() if writer is None else writer
     t0 = time.time()
     usage = llm.Usage()
     trace: dict = {"method": method}
-    conn = connect()
+    conn = None  # opened after the parse step, so a request does not hold a connection while the LLM works
     res: dict = {"question": question, "status": None, "answer": "", "assumptions": [], "flags": [],
                  "figures": [], "citations": [], "trace": trace}
 
@@ -292,7 +294,8 @@ def answer(question: str, method: str = SEARCH_METHOD, document: str | None = No
                         "llm_calls": usage.calls, "log": usage.log}
         res["llm"] = llm.model_name()
         res["latency_s"] = round(time.time() - t0, 3)
-        conn.close()
+        if conn is not None:
+            conn.close()
         return res
 
     # 1. parse (LLM + code validation). An LLM failure is reported, not silently replaced.
@@ -303,6 +306,7 @@ def answer(question: str, method: str = SEARCH_METHOD, document: str | None = No
         usage.log.append({"step": "parse", "error": str(e)[:300]})
         return done("error", f"LLM call failed ({llm.model_name()}): {str(e)[:200]}")
     trace["parse"] = p.model_dump()
+    conn = connect()
 
     # 2. company and filing
     if document:
@@ -344,7 +348,8 @@ def answer(question: str, method: str = SEARCH_METHOD, document: str | None = No
         if not doc["has_text"]:
             return done("abstain", f"Not enough evidence: the text of {doc['title']} is not indexed.")
         try:
-            out = answer_from_document(conn, question, doc["report_id"], usage, trace, search_terms=p.search_terms)
+            out = answer_from_document(conn, question, doc["report_id"], usage, trace, search_terms=p.search_terms,
+                                       statements=statements)
         except Exception as e:
             usage.log.append({"step": "docqa", "error": str(e)[:300]})
             return done("error", f"LLM call failed: {str(e)[:200]}")

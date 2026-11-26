@@ -29,11 +29,12 @@ def parquet_rows(path: str) -> Iterator[dict]:
 # ---------------------------------------------------------------------------- facts
 def load_facts_folder(conn, folder: str) -> None:
     init_db(conn)  # creates the tables if this is an empty database
+    before = conn.execute("SELECT count(*) AS n FROM documents").fetchone()["n"]
     new = load_facts(conn, {table: parquet_rows(f"{folder}/{table}") for table in STAGING})
     counts = conn.execute("""SELECT (SELECT count(*) FROM companies) AS companies,
                                     (SELECT count(*) FROM documents) AS documents,
                                     (SELECT count(*) FROM figures) AS figures""").fetchone()
-    print(f"new companies: {new}  in database now: {counts}")
+    print(f"new companies: {new}  new filings: {counts['documents'] - before}  in database now: {counts}")
 
 
 # ---------------------------------------------------------------------------- text
@@ -70,9 +71,9 @@ def load_text_batch(conn, folder: Path, raw_dir: str) -> int:
     return added
 
 
-def load_text_folder(conn, folder: str) -> None:
+def load_text_folder(conn, folder: str, raw: Path = TEXT_DIR / "raw") -> None:
     batches = sorted(p for p in Path(folder).glob("batch=*") if (p / "_SUCCESS").exists())
-    raw_root = (TEXT_DIR / "raw").relative_to(DATA_DIR)  # file_path is stored relative to data/
+    raw_root = raw.resolve().relative_to(DATA_DIR.resolve())  # file_path is stored relative to data/
     for batch in batches:
         t = time.time()
         added = load_text_batch(conn, batch, f"{raw_root}/{batch.name}")
@@ -87,6 +88,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("kind", choices=["facts", "text"])
     parser.add_argument("folder", help="output folder of the Spark job")
+    parser.add_argument("--raw", default=str(TEXT_DIR / "raw"), help="text: folder of the downloaded documents")
     args = parser.parse_args()
 
     start = time.time()
@@ -94,7 +96,7 @@ def main() -> None:
         if args.kind == "facts":
             load_facts_folder(conn, args.folder.rstrip("/"))
         else:
-            load_text_folder(conn, args.folder.rstrip("/"))
+            load_text_folder(conn, args.folder.rstrip("/"), Path(args.raw))
     print(f"total time {time.time() - start:.1f} s")
 
 

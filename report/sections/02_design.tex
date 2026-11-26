@@ -93,6 +93,7 @@ LLM & One hosted model; any model & Any model behind one interface &
 \end{xltabular}}
 
 \subsection{Answer workflow}
+\label{sec:workflow}
 
 \Cref{fig:workflow} shows the five steps of a question. Only two of them call an LLM (shaded).
 
@@ -179,6 +180,19 @@ the latest filing for ``the most recent quarter''.
         only numbers, input names and the operators $+$, $-$, $\times$, $/$ and powers.
 \end{itemize}
 
+\paragraph{Version 2: the three statements are always given.} Our analysis of the first FinanceBench
+run (\cref{sec:fb-errors}) showed that most declines of document QA had one cause: the search did not
+return the balance sheet, income statement or cash-flow statement. A statement page is mostly numbers
+and line labels, so it matches the words of a question poorly, although it holds the inputs of almost
+every ratio. Version 2 of the workflow therefore adds the passages of the filing's three primary
+statements to the search results, so the LLM always has them, the way an analyst keeps the statements
+open. Code finds them without an LLM: a page whose first lines carry a statement title (matched with
+all spaces removed, because PDF text often breaks words such as ``Balance Shee t''), that holds at
+least 25 numbers, and that lies within eight pages of the other two statements, which rules out tables
+of contents and summary tables in the MD\&A. On the 84 FinanceBench filings this finds the evidence
+page of all 50 calculation questions. The change is general (it does not depend on a question) and it
+adds about 4,000 input tokens per question. We call the first version A and the second A2.
+
 \paragraph{Step 5: write.} A second LLM call turns the verified facts into a short answer. It gets
 only the question and the facts, each with a reference such as
 \code{[F1] 3M, net sales, Q2 2023: \$8.325 billion}, and never the filing text. Code rejects the
@@ -250,6 +264,7 @@ from a note. Such cases are listed in the configuration, so the metric becomes u
 company and the system declines instead of answering with the wrong line.
 
 \subsection{Database design}
+\label{sec:db}
 \label{sec:schema}
 
 All data lives in one Postgres 16 database with the pgvector extension, which adds a
@@ -398,9 +413,17 @@ needed to check the answer:
 \code{assumptions} lists what the system assumed (for example ``No period given; assumed the
 latest available quarter''),
 \code{flags} lists problems it found (for example a rejected writer answer), and \code{trace} records
-the parse, the route, the SQL and search rounds and the time of each step in seconds. The web page shows the
-answer, a table of the figures, the passages in expandable boxes with their scores, and the trace. A
-sidebar lets the user choose the LLM, the model and the search method, and offers example questions.
+the parse, the route, the SQL and search rounds and the time of each step in seconds.
+
+The web page (\cref{fig:frontend}) is kept plain on purpose: a white page with one dark blue accent,
+so the answer and its sources stand out. It shows a small status label (answered, partly answered,
+declined, needs clarification), the answer in a card, any assumptions and checks as grey notes, a
+table of the figures with a link to the filing on the SEC website, and the passages in expandable
+boxes with their search score (or ``financial statement'' for the statement pages of version 2). One
+line under the answer gives the time, the tokens, the number of LLM calls and the model, and the full
+trace is one click away. A sidebar lets the user choose the LLM, the model and the search method, and
+offers example questions. The page only talks to the API over HTTP, so it can run on the same
+instance or anywhere else.
 
 \screenshot{The Streamlit page with an answered question: the answer, the figures table and one
 expanded passage.}{The web interface.}{fig:frontend}

@@ -170,7 +170,9 @@ DataFrame aggregations: how many companies each metric covers, and where a filin
 
 \paragraph{3. Loading.} \code{finqa/load\_bulk.py} copies the Parquet rows into temporary staging
 tables with Postgres' fast \code{COPY}, and then moves them into the real tables with plain SQL.
-Companies that are already in the database are skipped, so loading twice does not create duplicates.
+New companies are loaded completely; for a company that is already in the database only the 10-Qs
+filed after the last load are added (\cref{sec:update}). Loading the same data twice therefore
+changes nothing.
 
 \paragraph{4. Manifest and download.} \code{finqa/filings.py} reads \code{submissions.zip} to find the
 main HTML document of every 10-Q since 2019 that has no text yet, and writes a list of 140,226
@@ -197,6 +199,105 @@ jointly by two companies and had to be stored once per company; 879 companies we
 preferred-share ticker such as \code{BA-PA} instead of the common one; and ``Honeywell'' matched
 both Honeywell International and a new listing called Honeywell Aerospace. We fixed each of them in
 code, with a test, and reloaded.
+
+\subsection{Data aggregation with Spark}
+\label{sec:spark}
+
+Both batch jobs follow the same pattern: many independent input files, the same Python function on
+each, and a few aggregations over the result. Spark spreads this over all cores of the machine; the
+code would run unchanged on a cluster with \code{s3://} paths. \Cref{fig:spark} shows the steps of
+the facts job.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  st/.style={draw,rounded corners=2pt,align=center,font=\footnotesize,text width=25mm,minimum height=12mm},
+  sp/.style={st,fill=llmbox},
+  arr/.style={-{Stealth[length=2mm]},thick}]
+  \node[st] (in)  at (0,0)     {20,609 JSON files\\(1 per company)};
+  \node[sp] (rd)  at (3.3,0)   {\code{wholeTextFiles}\\128 partitions};
+  \node[sp] (fm)  at (6.6,0)   {\code{flatMap}\\\code{extract\_company}};
+  \node[sp] (ca)  at (9.9,0)   {\code{cache}\\(table, row) pairs};
+  \node[sp] (fi)  at (9.9,-2.2) {\code{filter} by table\\$\to$ DataFrame};
+  \node[st] (pq)  at (6.6,-2.2) {Parquet: companies, documents, figures, tags};
+  \node[sp] (gb)  at (3.3,-2.2) {\code{groupBy} +\\\code{agg}};
+  \node[st] (rep) at (0,-2.2)  {Coverage and restatement reports};
+  \draw[arr] (in)--(rd); \draw[arr] (rd)--(fm); \draw[arr] (fm)--(ca); \draw[arr] (ca)--(fi);
+  \draw[arr] (fi)--(pq); \draw[arr] (pq)--(gb); \draw[arr] (gb)--(rep);
+\end{tikzpicture}
+\caption{The Spark facts job. Shaded boxes are Spark operations; the company files are processed in
+parallel, one task per partition.}
+\label{fig:spark}
+\end{figure}
+
+\paragraph{Facts job.} \code{wholeTextFiles} reads the company files as (path, text) pairs. With
+default settings it makes only two partitions, so we ask for four per core (128 on the c7i.8xlarge),
+which keeps every core busy even though company files range from a few kilobytes to 30 MB.
+\code{flatMap} runs \code{facts.extract\_company} on each file and turns it into (table, row) pairs
+for the four tables; the ticker list is sent to every worker once as a broadcast variable. The result
+is cached, because it is read four times: one \code{filter} per table, each converted to a DataFrame
+with a fixed schema and written as Parquet. In total the job writes 9,695 companies, 140,436 10-Qs,
+3,022,763 figures and 96,950 metric-tag choices in 40 seconds.
+
+\paragraph{Aggregations.} The job then reads the figures back as a DataFrame and builds two reports
+with \code{groupBy} and \code{agg}, which shuffle the rows by key across the partitions.
+\Cref{tab:coverage} is the first: for each metric, how many companies report it for a quarter, how
+many quarterly figures exist and which share of them is derived (a quarter computed as the
+difference of two year-to-date values). It shows, for example, that net income is reported by almost
+every filer, while gross profit or SG\&A is reported by fewer than half, and that 65\% of the
+quarterly operating cash flows had to be derived, because a 10-Q reports cash flows only year to
+date. The second report groups by company, metric and quarter and keeps the groups with more than one
+value: 62,483 such restatements, where a later filing reports a different number for the same
+quarter. This is why the workflow always uses the value of the filing that the question is about
+(\cref{sec:db}).
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Metric & Companies & Quarterly figures & Derived \\
+\midrule
+Net income & 9,661 & 377,204 & 0.5\% \\
+Operating cash flow & 9,406 & 268,209 & 65.3\% \\
+Operating income & 7,836 & 215,507 & 0.1\% \\
+EPS (diluted) & 7,430 & 194,447 & 0.2\% \\
+Pre-tax income & 7,104 & 198,943 & 0.1\% \\
+Net sales / revenue & 6,895 & 194,350 & 0.7\% \\
+Cost of sales & 4,713 & 127,225 & 0.5\% \\
+Gross profit & 3,706 & 101,107 & 0.4\% \\
+R\&D expense & 3,189 & 91,139 & 0.8\% \\
+SG\&A & 3,004 & 88,110 & 0.1\% \\
+\bottomrule
+\end{tabular}
+\caption{Coverage report of the facts job: quarterly figures per metric over all filers since 2019.}
+\label{tab:coverage}
+\end{table}
+
+\paragraph{Text job.} The text job reads each finished download batch with Spark's \code{binaryFile}
+source (one row per compressed 10-Q), splits every filing into passages with \code{flatMap}, and then
+calls \code{repartition}: filings differ a lot in length, and without it a few tasks would get most of
+the passages of the expensive next step. \code{mapPartitions} embeds the passages of a partition in
+groups of 256, so the embedding model is loaded once per task rather than once per passage, and the
+result is written as one Parquet folder per batch. The list of evaluation companies, whose filings
+are kept completely, is a broadcast variable. E5 (\cref{sec:e5}) measures how both jobs scale with
+the number of cores.
+
+\subsection{Updating with new filings}
+\label{sec:update}
+
+Companies file new 10-Qs every day, so the database must be updated without rebuilding it. The
+pipeline already skips finished work; for updates we added three small changes:
+\begin{itemize}
+  \item the facts load adds every 10-Q filed after the newest filing in the database, also for
+        companies that are already loaded (before, a known company was skipped completely);
+  \item the manifest takes a \code{--since} date, so only the new filings are downloaded;
+  \item the text load takes the folder of the update's downloads.
+\end{itemize}
+\code{cloud/update.sh} runs the seven steps of the pipeline on new data only and records the time of
+each step. The facts job still processes all companies, because \code{companyfacts.zip} has no
+``changed since'' option and the job takes under a minute anyway; the expensive steps, download and
+embedding, only touch the new filings. E6 (\cref{sec:e6}) reports one such update run and estimates
+the resources needed on the busiest filing days.
 
 \subsection{Deployment on AWS}
 

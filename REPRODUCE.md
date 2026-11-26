@@ -280,10 +280,42 @@ for m in qwen qwen-3b; do for s in A A0 C; do .venv/bin/python eval/run_experime
 for s in A C; do .venv/bin/python eval/run_experiments.py run --set financebench --system $s --llm claude --model claude-haiku-5-5; done
 ```
 
-**[laptop]** FinanceBench with Qwen, on a fixed random sample of 50 (seed 0, the same questions for every system):
+**[laptop]** FinanceBench with Qwen, all 150 questions (about 1 hour per combination; the first
+preliminary runs used `--sample 50`, a fixed random sample, and a run without it adds the other 100):
 
 ```bash
-for m in qwen qwen-3b; do for s in A C; do .venv/bin/python eval/run_experiments.py run --set financebench --system $s --llm $m --sample 50; done; done
+for m in qwen qwen-3b; do for s in N A C; do .venv/bin/python eval/run_experiments.py run --set financebench --system $s --llm $m; done; done
+```
+
+**[laptop]** Version 2 of the workflow (A2: document QA also gets the filing's three financial
+statements), with Haiku, on both sets:
+
+```bash
+.venv/bin/python eval/run_experiments.py run --set financebench --system A2 --llm claude --model claude-haiku-5-5
+```
+
+```bash
+.venv/bin/python eval/run_experiments.py run --set v2 --split test --system A2 --llm claude --model claude-haiku-5-5
+```
+
+**[laptop]** Repeated Haiku runs for the error bars. Haiku samples its answers, so every Haiku
+combination runs three times; `--repeat 2` and `--repeat 3` write files ending in `__r2` and `__r3`
+next to run 1. Qwen decodes greedily and gives the same answers every time, so it runs once.
+
+```bash
+for r in 2 3; do for s in A A0 A2 C N; do .venv/bin/python eval/run_experiments.py run --set v2 --split test --system $s --llm claude --model claude-haiku-5-5 --repeat $r; done; done
+```
+
+```bash
+for r in 2 3; do for s in A A2 C N; do .venv/bin/python eval/run_experiments.py run --set financebench --system $s --llm claude --model claude-haiku-5-5 --repeat $r; done; done
+```
+
+(Run 1 of A2 is the command above without `--repeat`.)
+
+**[laptop]** Is FinanceBench in a large model's training data? Closed book with Opus 5.5 (about $5):
+
+```bash
+.venv/bin/python eval/run_experiments.py run --set financebench --system N --llm claude --model claude-opus-5-5
 ```
 
 **[ec2]** Qwen2.5-3B on the instance's CPU via Ollama (system A, our test set; this run also gives the E3 step timings):
@@ -345,11 +377,14 @@ Rough run times: Haiku 10-30 minutes per combination; Qwen on the Mac 30-60 minu
 .venv/bin/python eval/run_experiments.py grade --set financebench
 ```
 
-**[laptop]** Grader check: regrade a random sample of 60 LLM grades with Sonnet 5.5. It prints the agreement (we got 54/60) and writes `eval/results/grader_check.csv`, whose empty `human` column is for a person:
+**[laptop]** Grader check: regrade a random sample of the LLM grades with Sonnet 5.5. It prints the agreement and writes `eval/results/grader_check.csv`, whose empty `human` column is for a person:
 
 ```bash
-.venv/bin/python eval/run_experiments.py agreement --model claude-sonnet-5-5
+.venv/bin/python eval/run_experiments.py agreement --model claude-sonnet-5-5 --limit 300
 ```
+
+`--limit` is the sample size (default 60). It also prints Cohen's kappa and the confusion matrix and
+writes them to `eval/results/grader_agreement.json`.
 
 **[laptop]** A quick table per set:
 
@@ -393,10 +428,47 @@ nohup bash cloud/scaling_experiment.sh > data/bulk/scaling.log 2>&1 &
 cp data/bulk/scaling.csv eval/results/
 ```
 
+**E4, HTTP load test on three instance sizes.** The database stays on the c7i.8xlarge; the API
+runs on c7i.large, c7i.xlarge and c7i.2xlarge (2, 4, 8 vCPUs), with the LLM replaced by a stand-in
+(`eval/stub_api.py`). First [aws]: in the instances' security group allow TCP 5432 and 8080 *from the
+security group itself*, and launch the three instances like the first one (30 GB disk is enough).
+The vCPU quota must cover 46 vCPUs (32 + 14); otherwise request an increase or resize the big
+instance to c7i.4xlarge for this test.
+
+[each API instance] Install Docker (`bash cloud/ec2_setup.sh`), copy the code as in step 2, build the
+image, then start the API with one worker per vCPU, pointing at the database's *private* IP:
+
+```bash
+docker run -d --name api -p 8080:8080 -e DATABASE_URL=postgresql://finqa:finqa@<db-private-ip>:5432/finqa -e STUB_LLM_SECONDS=0 finqa uvicorn eval.stub_api:app --host 0.0.0.0 --port 8080 --workers $(nproc)
+```
+
+[ec2, the database instance] Run the load generator against each API instance, without and with a
+5-second LLM wait (restart the API container with `STUB_LLM_SECONDS=5` in between):
+
+```bash
+docker compose run --rm -T api python eval/http_load_test.py --url http://<api-private-ip>:8080 --users 1 10 50 100 250 500 1000 --seconds 60 --name c7i.large_llm0
+```
+
+Results go to `eval/results/load/<name>.json`.
+
+**E6, updates with new filings.** [ec2] Add the 10-Qs filed since the last load and time every step
+(a few minutes; it downloads the SEC bulk files again):
+
+```bash
+nohup bash cloud/update.sh > data/bulk/update.log 2>&1 &
+```
+
+The step times go to `eval/results/update_<date>.csv`. To count how many 10-Qs the SEC receives per
+day (for the estimate of busy days):
+
+```bash
+docker compose run --rm -T api python eval/filings_per_day.py data/bulk/submissions.zip
+```
+
 **[laptop]** Fetch the E4 and E5 files from the instance:
 
 ```bash
-rsync -av -e "ssh -i ~/.ssh/finqa.pem" "ubuntu@<host>:financial-agent-project/eval/results/load_test_*.json" "ubuntu@<host>:financial-agent-project/eval/results/scaling.csv" eval/results/
+rsync -av -e "ssh -i ~/.ssh/finqa.pem" "ubuntu@<host>:financial-agent-project/eval/results/load_test_*.json" "ubuntu@<host>:financial-agent-project/eval/results/load" "ubuntu@<host>:financial-agent-project/eval/results/scaling.csv" "ubuntu@<host>:financial-agent-project/eval/results/update_*.csv" "ubuntu@<host>:financial-agent-project/eval/results/filings_per_day.csv" eval/results/
 ```
 
 
@@ -412,19 +484,26 @@ This is the file the report and slides take their numbers from. The result files
 committed in `eval/results/`, so this command alone reproduces every table without spending
 anything.
 
-Expected headline numbers (our test set, 50 questions; FinanceBench: Haiku on 150, Qwen on 50):
+Expected headline numbers (our test set: 50 questions; FinanceBench: 150; Haiku: mean of three runs):
 
 | | Haiku 5.5 | Qwen2.5-7B (Mac) | Qwen2.5-3B (Mac) |
 |---|---|---|---|
-| A, our set | 96% | 84% | 62% |
-| A0, our set | 96% | 84% | 62% |
-| C, our set | 70% | 38% | 40% |
-| A, FinanceBench | 69% | 12% | 16% |
-| C, FinanceBench | 56% | 22% | 24% |
+| A, our set | 96.0% ± 0.0 | 84% | 62% |
+| A0, our set | 96.0% ± 0.0 | 84% | 62% |
+| A2, our set | 96.0% ± 0.0 | – | – |
+| C, our set | 68.7% ± 1.2 | 38% | 40% |
+| N, our set | 30.7% ± 1.2 | 14% | 18% |
+| A, FinanceBench | 69.1% ± 1.0 | 16% | 14.7% |
+| A2, FinanceBench | 74.9% ± 1.0 | – | – |
+| C, FinanceBench | 54.4% ± 1.4 | 23.3% | 23.3% |
+| N, FinanceBench | 21.3% ± 1.3 | 8% | 2% |
 
-Qwen2.5-3B on the EC2 CPU (Ollama), system A: 54%. Retrieval, hybrid: hit@1 0.50 / MRR 0.61 on our
-"why" questions (MD&A), hit@10 0.65 / MRR 0.40 on FinanceBench. Load test: 285 questions/s at 10
-users. Scaling: text job 8.5x faster on 32 cores than on 1, facts job 7.0x.
+Opus 5.5 closed book: 62% on our set, 62.7% on FinanceBench. Qwen2.5-3B on the EC2 CPU (Ollama),
+system A: 54%. Retrieval, hybrid: hit@1 0.50 / MRR 0.61 on our "why" questions (MD&A), hit@10 0.65 /
+MRR 0.40 on FinanceBench. Load test (one process): 285 questions/s at 10 users. Scaling: text job 8.5x
+faster on 32 cores than on 1, facts job 7.0x. Update run: 92 new 10-Qs in 301 s.
+
+`python eval/error_analysis.py` prints how FinanceBench answers change from version 1 to version 2.
 
 
 ## 10. Serve the app and shut down
@@ -458,8 +537,8 @@ bucket if you made one.
   (M01, M02) move to a newer quarter; rebuild the answer key (step 5) in that case.
 - **Timings depend on the machine.** E3-E5 were measured on c7i.8xlarge in us-east-1 with nothing
   else running. Laptop runs through the SSH tunnel add network time to every database call.
-- **The grader is an LLM.** Its agreement with a stronger model is 54/60 (90%); a person's check of
-  `eval/results/grader_check.csv` is still open.
+- **The grader is an LLM.** Its agreement with a stronger model is in `eval/results/grader_agreement.json`;
+  a person's check of `eval/results/grader_check.csv` is still open.
 
 
 ## Versions used
@@ -471,7 +550,7 @@ bucket if you made one.
 | Ollama | `ollama/ollama:0.6.2` image, `qwen2.5:3b-instruct` |
 | PySpark | 4.3.0 (local mode, Java from Debian's `default-jre-headless`) |
 | fastembed | 0.9.1, model `sentence-transformers/all-MiniLM-L6-v2` (384 dims) |
-| anthropic | 2.9.0; models `claude-haiku-5-5` (system and grader), `claude-sonnet-5-5` (grader check) |
+| anthropic | 2.9.0; models `claude-haiku-5-5` (system and grader), `claude-sonnet-5-5` (grader check), `claude-opus-5-5` (closed-book check) |
 | mlx-lm | 0.32.2; `mlx-community/Qwen2.5-7B-Instruct-4bit`, `mlx-community/Qwen2.5-3B-Instruct-4bit` |
 | psycopg / pgvector | 3.3.9 / 0.5.1 |
 | pypdf | 7.1.1 |

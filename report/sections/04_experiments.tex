@@ -1,7 +1,7 @@
 \section{Experiments}
 
-We ran five experiments (\cref{tab:experiments}). E1 measures answer quality, E2 the search alone,
-and E3--E5 the cloud side.
+We ran six experiments (\cref{tab:experiments}). E1 measures answer quality, E2 the search alone,
+and E3--E6 the cloud side.
 
 \begin{table}[ht]
 \centering\small
@@ -9,13 +9,15 @@ and E3--E5 the cloud side.
 \toprule
  & Experiment & What we measure \\
 \midrule
-E1 & Accuracy & Systems A, A0, C and N with Haiku 5.5, Qwen2.5-7B and Qwen2.5-3B, on our question set
-              and on FinanceBench: accuracy, wrong declines, tokens and cost \\
+E1 & Accuracy & Systems A, A0, A2, C and N with Haiku 5.5, Qwen2.5-7B and Qwen2.5-3B, on our question
+              set and on FinanceBench: correct, wrong and declined answers, tokens and cost \\
 E2 & Retrieval & BM25, semantic and hybrid search without an LLM: does the right passage come first? \\
 E3 & Latency per step & Time of each step on the server, with Qwen2.5-3B on the CPU \\
-E4 & Load test & Questions per second and latency of the pipeline (without the LLM) for 1, 10 and 50
-              concurrent users \\
+E4 & Load test & Questions per second and latency for 1 to 1,000 concurrent users: the pipeline in one
+              process, and the HTTP API on three instance sizes \\
 E5 & Spark scaling & Run time of both Spark jobs with 1 to 32 cores \\
+E6 & Updates & Time and resources to add newly filed 10-Qs, measured once and estimated for the
+              busiest filing days \\
 \bottomrule
 \end{tabularx}
 \caption{Experiments.}
@@ -27,18 +29,29 @@ E5 & Spark scaling & Run time of both Spark jobs with 1 to 32 cores \\
 \paragraph{Our question set.} We wrote 60 questions about ten large companies: 3M, Coca-Cola,
 Johnson \& Johnson, Caterpillar and Honeywell (2023 filings), and PepsiCo, Tesla, Abbott, IBM and
 Lockheed Martin (2024 filings). 50 are the test set and 10 are a development set that we only used to
-set the search threshold. The test set has six categories:
-\begin{itemize}
-  \item \emph{lookup} (10): one figure for one quarter, for example ``What was Tesla's gross profit
-        in Q3 2024?'';
-  \item \emph{change} (10): the year-over-year change of a figure;
-  \item \emph{paraphrase} (8): the same kinds of questions in everyday words (``How much cash did
-        Caterpillar generate from operations\ldots'');
-  \item \emph{why} (12): the reasons for a change, from the MD\&A;
-  \item \emph{decline} (8): questions the system should refuse, such as future results, stock price
-        moves or 10-K data;
-  \item \emph{latest} (2): ``the most recent quarter''.
-\end{itemize}
+set the search threshold. The test set has six categories (\cref{tab:question-examples}).
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{lrX}
+\toprule
+Category & $n$ & Example (gold answer) \\
+\midrule
+lookup     & 10 & ``What was 3M's revenue in Q2 2023?'' (\$8,325 million) \\
+change     & 10 & ``How much did 3M's net sales change year over year in the second quarter of 2023?''
+                  ($-4.3\%$, from \$8,702 million) \\
+paraphrase & 8  & ``How big was J\&J's top line in Q1 2023?'' (revenue in everyday words) \\
+why        & 12 & ``Why did Coca-Cola's operating income increase in Q2 2023?'' (favourable pricing
+                  initiatives and channel and package mix) \\
+decline    & 8  & ``What was IKEA's revenue in Q2 2024?'' (not an SEC filer: must be declined); also
+                  Q4 or 10-K numbers, stock price moves and a CEO's ``management style'' \\
+latest     & 2  & ``What was Honeywell's EPS?'' (no period: the latest quarter, with the assumption stated) \\
+\bottomrule
+\end{tabularx}
+\caption{The six categories of our test set, with one real question of each.}
+\label{tab:question-examples}
+\end{table}
+
 The answer key was checked against the filings themselves, not against our database: every number
 was found in a labelled row of the 10-Q's own statement table, every change with its prior-year
 column, and every ``why'' answer has evidence phrases that appear in the filing. All 60 answers
@@ -46,25 +59,104 @@ passed this check.
 
 \paragraph{FinanceBench.} The 150 public questions of FinanceBench~\cite{financebench}, written by
 analysts about 84 filings (mostly 10-Ks). They are in three types of 50: \emph{metrics-generated}
-(calculations such as a ratio), \emph{domain-relevant} (questions an analyst would ask, often needing
-judgement) and \emph{novel-generated} (other questions). As in the benchmark's single-document
-setting, every system is given the correct filing. Haiku answers all 150 questions; the local models
-answer a fixed random sample of 50 (seed 0), the same 50 for every system, because they are slow.
+(calculations such as a ratio, for example ``What is Amazon's FY2017 days payable outstanding?''),
+\emph{domain-relevant} (questions an analyst would ask, often needing judgement, such as ``Is 3M a
+capital-intensive business based on FY2022 data?'') and \emph{novel-generated} (other questions, such
+as ``How does Boeing's effective tax rate in FY2022 compare to FY2021?''). As in the benchmark's
+single-document setting, every system is given the correct filing. All models now answer all 150
+questions; the first preliminary results used a sample of 50 for the slow local models.
+
+\subsection{Systems}
+
+Besides our workflow (A) we run four other systems on the same questions and filings:
+\begin{itemize}
+  \item \textbf{A0}: the workflow with the template answer instead of the LLM writer, to measure what
+        the writer adds;
+  \item \textbf{A2}: version 2 of the workflow, which also gives document QA the three financial
+        statements (\cref{sec:workflow}). On our question set A2 differs from A only for the few
+        questions that go to document QA;
+  \item \textbf{C}: simple RAG, the top passages of the correct filing and the question in one prompt;
+  \item \textbf{N}: closed book, only the question. Whatever N gets right comes from the model's
+        training data. To measure how much a large model remembers, we also run N with the much
+        larger Claude Opus 5.5 on both question sets.
+\end{itemize}
 
 \subsection{Grading}
+\label{sec:grading}
 
-Numbers are graded by code. An answer is correct if it states the gold value to the precision it
-gives (so ``\$8.3 billion'' is correct for \$8,325 million). A change must give the percentage within
-0.15 points and also the new value or the dollar change. Free-text answers (``why'' questions and
-FinanceBench) and decline questions are graded by an LLM grader (Claude Haiku 5.5) that compares the
-answer with the gold answer. To check the grader we had a stronger model (Claude Sonnet 5.5) grade a
-sample of 60 answers again: the two agreed on 54 of 60 (90\%). The sample is saved for a check by a
-person, which is still to do. For the closed-book system N, an answer to a number question that says
-it does not know is counted as a decline, not as a wrong answer.
+\paragraph{Numbers: graded by code.} An answer to a lookup, change, paraphrase or latest question is
+correct if it states the gold value to the precision it gives, so ``\$8.3 billion'' is correct for
+\$8,325 million but ``\$8.4 billion'' is not. A change must give the percentage within 0.15 points and
+also the new value or the dollar change (only the percentage if the question asks for one). The
+system's own refusals (status \code{abstain} or \code{clarify}) are counted as declines; for the
+closed-book system, an answer that says it does not know is also a decline, not a wrong answer.
+
+\paragraph{Free text: an LLM as judge.} ``Why'' answers, every FinanceBench answer and the answers of
+C and N to decline questions are graded by an LLM judge (Claude Haiku 5.5) that sees the question, the
+gold answer and the system's answer and returns one of three verdicts:
+\begin{itemize}
+  \item \emph{correct}: the answer states the gold answer's key facts or reasons; the wording may
+        differ and numbers may be rounded or in other units as long as they agree, and extra true
+        details are fine;
+  \item \emph{incorrect}: wrong numbers, a wrong or missing main reason, or a contradiction;
+  \item \emph{declined}: the answer does not answer (says the information is missing, asks to
+        clarify or refuses).
+\end{itemize}
+The same judge grades every system and model, so the grades are comparable. An LLM judge can be too
+strict or too lenient, so we checked it in two ways. First, a stronger model (Claude Sonnet 5.5)
+graded a random sample of 300 judged answers again (267 from FinanceBench, 33 from our set). The two
+agree on 268 of 300 (89\%), with Cohen's $\kappa = 0.84$, which corrects the agreement for chance and
+counts as strong agreement (\cref{tab:grader}). Most disagreements are between ``incorrect'' and
+``declined'' (18), for answers that give a partial number and then say the rest is missing; this does
+not change the accuracy. On the question that matters for accuracy, correct or not, the two agree on
+286 of 300 (95\%), and the judge is not systematically stricter or more lenient: it called 9 answers
+correct that Sonnet did not, and 5 the other way round. Second, the same sample is saved with an
+empty column for a person's grade (\code{eval/results/grader\_check.csv}); this human check is still
+to do and will be added to the final report.
+
+\begin{table}[ht]
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Judge (Haiku) $\downarrow$ \quad Sonnet $\rightarrow$ & correct & incorrect & declined \\
+\midrule
+correct   & \textbf{125} & 8  & 1 \\
+incorrect & 4   & \textbf{74} & 18 \\
+declined  & 1   & 0  & \textbf{69} \\
+\bottomrule
+\end{tabular}
+\caption{Grader check on 300 random LLM-graded answers: the verdicts of our judge (rows) against a
+stronger model (columns). Agreement 89\%, Cohen's $\kappa = 0.84$.}
+\label{tab:grader}
+\end{table}
+
+\paragraph{Repeated runs and error bars.} Haiku samples its answers (temperature 1), so the same
+question can get a different answer on a second run. We therefore ran every Haiku combination three
+times and report the mean $\pm$ standard deviation over the three runs. The Qwen models run with
+greedy decoding in mlx, which always gives the same answer, so one run is enough. The standard
+deviation over runs only shows the model's own randomness. The larger uncertainty comes from the
+small number of questions, so we also give a 95\% confidence interval from a bootstrap over the
+questions: we draw the 50 (or 150) questions with replacement 2,000 times, score each question by its
+mean over the runs, and take the 2.5th and 97.5th percentile of the accuracy.
 
 \subsection{Models and setup}
 
 The hosted model is Claude Haiku 5.5. The local models are Qwen2.5-7B and Qwen2.5-3B in 4-bit, run
 with mlx on a MacBook (Apple GPU), connected to the database on EC2 through an SSH tunnel. For E3 we
 also ran Qwen2.5-3B with Ollama on the CPU of the EC2 instance, so that all steps run on one machine
-without any API. E3, E4 and E5 ran on the c7i.8xlarge instance.
+without any API. E3, E5 and E6 ran on the c7i.8xlarge instance.
+
+\paragraph{E4 setup.}\label{sec:experiments-e4} The first part runs the whole pipeline inside one process on the c7i.8xlarge,
+with the LLM steps replaced by fixed outputs (the parse comes from the question's known fields), for
+1, 10 and 50 concurrent users. The second part tests the deployed HTTP API. The database stays on the
+c7i.8xlarge, and the API runs on a separate instance of three sizes (c7i.large, c7i.xlarge and
+c7i.2xlarge, with 2, 4 and 8 vCPUs), with one worker process per vCPU. The LLM is again replaced, once
+with no waiting and once with a 5-second wait in place of the LLM calls, which is what a request
+spends waiting for a real LLM. A load generator in the same AWS network sends questions from 1 to
+1,000 simulated users for 60 seconds each, every user asking the next question as soon as the last one
+is answered. We measure answers per second, the median, 95th and 99th percentile latency, and the
+share of failed requests.
+
+\paragraph{E6 setup.} We ran \code{cloud/update.sh} on the existing database on 26 November 2026,
+which added the 10-Qs filed since the last load, and timed each step. To estimate the load on busy
+days we counted all 10-Qs by filing date in SEC's \code{submissions.zip} for 2024--2026.

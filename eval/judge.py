@@ -34,8 +34,13 @@ class Judge:
         self.client = anthropic.Anthropic(timeout=120, max_retries=3)
 
     def grade(self, question: str, reference: str, answer: str) -> dict:
-        resp = self.client.messages.parse(
-            model=self.model, max_tokens=1000, system=SYSTEM,
-            messages=[{"role": "user", "content": f"QUESTION:\n{question}\n\nREFERENCE:\n{reference}\n\nANSWER:\n{answer}"}],
-            output_format=Verdict, output_config={"effort": "low"})
-        return resp.parsed_output.model_dump()
+        """The verdict. A reply without a parsed verdict (cut off, or a refusal) is retried with more
+        room; after three tries it raises, and the answer stays ungraded."""
+        for max_tokens in (1000, 4000, 8000):
+            resp = self.client.messages.parse(
+                model=self.model, max_tokens=max_tokens, system=SYSTEM,
+                messages=[{"role": "user", "content": f"QUESTION:\n{question}\n\nREFERENCE:\n{reference}\n\nANSWER:\n{answer}"}],
+                output_format=Verdict, output_config={"effort": "low"})
+            if resp.parsed_output is not None:
+                return resp.parsed_output.model_dump()
+        raise RuntimeError(f"no verdict from the grader (stop reason: {resp.stop_reason})")

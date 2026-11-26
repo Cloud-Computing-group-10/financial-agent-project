@@ -7,6 +7,8 @@
 Systems:
   A  our workflow (finqa.workflow.answer); on FinanceBench it is given the document
   A0 ablation: the same workflow with the template answer instead of the LLM-written one
+  A2 version 2 of the workflow: the document path also gets the filing's three primary financial
+     statements (finqa/docqa.py). A is version 1, as first run.
   C  simple RAG baseline: top passages of the correct filing + the question
   N  closed-book baseline: only the question, no filing and no retrieval
 C always gets the correct filing (from the answer key / FinanceBench), which favours it.
@@ -61,9 +63,9 @@ def ask(system: str, q: dict, set_name: str) -> dict:
     from finqa.closed_book import closed_book_answer
     from finqa.rag_baseline import rag_answer
     from finqa.workflow import answer
-    if system in ("A", "A0"):
+    if system in ("A", "A0", "A2"):
         return answer(q["question"], document=q["accession"] if set_name == "financebench" else None,
-                      writer=system == "A")
+                      writer=system != "A0", statements=system == "A2")
     if system == "N":
         return closed_book_answer(q["question"])
     if not q.get("accession"):  # questions without a filing (unknown company, no company named)
@@ -71,8 +73,10 @@ def ask(system: str, q: dict, set_name: str) -> dict:
     return rag_answer(q["question"], q["accession"])
 
 
-def result_path(set_name: str, system: str, model: str) -> Path:
-    return RESULTS / set_name / f"{system}__{model.replace('/', '_').replace(':', '_')}.jsonl"  # portable names
+def result_path(set_name: str, system: str, model: str, repeat: int = 1) -> Path:
+    """Run 1 has no suffix (the first runs); repeated runs of the same combination end in __r2, __r3."""
+    suffix = f"__r{repeat}" if repeat > 1 else ""
+    return RESULTS / set_name / f"{system}__{model.replace('/', '_').replace(':', '_')}{suffix}.jsonl"  # portable names
 
 
 def sample_ids(set_name: str, n: int) -> set[str]:
@@ -82,9 +86,10 @@ def sample_ids(set_name: str, n: int) -> set[str]:
     return set(random.Random(0).sample(ids, n))
 
 
-def run(set_name: str, system: str, split: str | None, limit: int | None, sample: int | None = None) -> None:
+def run(set_name: str, system: str, split: str | None, limit: int | None, sample: int | None = None,
+        repeat: int = 1) -> None:
     from finqa import llm
-    path = result_path(set_name, system, llm.model_name())
+    path = result_path(set_name, system, llm.model_name(), repeat)
     path.parent.mkdir(parents=True, exist_ok=True)
     done = {r["id"] for r in load(path)}
     chosen = sample_ids(set_name, sample) if sample else None
@@ -143,7 +148,7 @@ def grade_row(q: dict, row: dict, judge) -> dict:
     gold, cat, text = q["gold"], q["category"], row["answer"] or ""
     declined_status = row["status"] in ("abstain", "clarify", "no_document")
     if q.get("expect") in ("decline", "clarify"):
-        if row["system"] in ("A", "A0") or declined_status:
+        if row["system"] in ("A", "A0", "A2") or declined_status:
             return {"verdict": "declined" if declined_status else "answered", "correct": declined_status}
         v = judge.grade(q["question"], f"The question must be declined: {gold['decline_reason']}.", text)
         return {"verdict": v["verdict"], "correct": v["verdict"] == "declined", "reason": v["reason"]}
@@ -176,7 +181,10 @@ def grade(set_name: str) -> None:
         rows = load(path)
         new = [r for r in rows if r["id"] not in graded]
         for r in new:
-            graded[r["id"]] = {**r, **grade_row(qs[r["id"]], r, judge)}
+            try:
+                graded[r["id"]] = {**r, **grade_row(qs[r["id"]], r, judge)}
+            except Exception as e:  # one failing grade must not lose the others; run grade again later
+                print(f"  ! {r['id']} not graded: {str(e)[:200]}")
         for r in rows:  # number grades are code: recompute them so a rule change applies everywhere
             if r["id"] in graded and qs[r["id"]]["category"] in NUMERIC and qs[r["id"]].get("expect") not in ("decline", "clarify"):
                 graded[r["id"]] = {**r, **grade_row(qs[r["id"]], r, judge)}
@@ -218,7 +226,15 @@ def agreement(set_names: list[str], model: str, n: int = 60, seed: int = 0) -> N
         writer = csv.DictWriter(f, list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
-    print(f"grader vs {model}: {same}/{len(rows)} agree -> {out} (fill in the 'human' column)")
+    labels = ["correct", "incorrect", "declined"]
+    confusion = {a: {b: sum(r["grader"] == a and r["strong_grader"] == b for r in rows) for b in labels} for a in labels}
+    n = len(rows)
+    expected = sum(sum(confusion[a].values()) * sum(confusion[b][a] for b in labels) for a in labels) / n ** 2
+    kappa = (same / n - expected) / (1 - expected)  # Cohen's kappa: agreement beyond chance
+    summary = {"model": model, "n": n, "agree": same, "kappa": round(kappa, 3), "confusion": confusion}
+    (RESULTS / "grader_agreement.json").write_text(json.dumps(summary, indent=1))
+    print(f"grader vs {model}: {same}/{n} agree, Cohen's kappa {kappa:.2f} -> {out} (fill in the 'human' column)")
+    print("rows: grader, columns: strong grader", json.dumps(confusion))
 
 
 # ---------------------------------------------------------------------------- summary
@@ -253,21 +269,22 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("step", choices=["run", "grade", "summary", "agreement"])
     ap.add_argument("--set", default="v2", choices=["v2", "financebench"])
-    ap.add_argument("--system", choices=["A", "A0", "C", "N"])
+    ap.add_argument("--system", choices=["A", "A0", "A2", "C", "N"])
     ap.add_argument("--llm", help="LLM preset (claude, hkust, qwen, ...)")
     ap.add_argument("--model", help="model id, e.g. claude-haiku-5-5")
     ap.add_argument("--split", choices=["test", "dev"])
     ap.add_argument("--limit", type=int)
     ap.add_argument("--sample", type=int, help="only a fixed random sample of N questions (seed 0)")
+    ap.add_argument("--repeat", type=int, default=1, help="run number; runs 2, 3, ... are saved next to run 1")
     args = ap.parse_args()
     if args.step == "run":
         from finqa import llm
         llm.configure(args.llm, args.model)
-        run(args.set, args.system, args.split, args.limit, args.sample)
+        run(args.set, args.system, args.split, args.limit, args.sample, args.repeat)
     elif args.step == "grade":
         grade(args.set)
     elif args.step == "agreement":
-        agreement(["v2", "financebench"], args.model or "claude-sonnet-5-5")
+        agreement(["v2", "financebench"], args.model or "claude-sonnet-5-5", n=args.limit or 60)
     else:
         summary(args.set)
 

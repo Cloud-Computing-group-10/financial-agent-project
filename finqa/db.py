@@ -98,23 +98,30 @@ STAGING = {
     "metric_tags": "company_id BIGINT, metric TEXT, tags TEXT, unsupported_reason TEXT",
 }
 
-# Move staged rows into the real tables, only for companies not in the database yet.
+# Move staged rows into the real tables: everything of companies not in the database yet, and, for
+# companies already loaded, only the 10-Qs filed after the last load (an update run). Older filings
+# of loaded companies are left alone, so the bulk load does not duplicate the pilot companies.
+LAST_FILED = """(SELECT max(filed) FROM documents WHERE accession NOT LIKE 'financebench:%')"""
 MERGE = [
     """CREATE TEMP TABLE new_companies ON COMMIT DROP AS
            SELECT DISTINCT company_id FROM stage_companies
            EXCEPT SELECT company_id FROM companies""",
+    f"""CREATE TEMP TABLE new_documents ON COMMIT DROP AS
+           SELECT company_id, accession FROM stage_documents
+           WHERE company_id IN (SELECT company_id FROM new_companies) OR filed > {LAST_FILED}
+           EXCEPT SELECT company_id, accession FROM documents""",
     """INSERT INTO companies (company_id, name, ticker, name_key)
            SELECT DISTINCT ON (company_id) company_id, name, ticker, name_key FROM stage_companies
            WHERE company_id IN (SELECT company_id FROM new_companies)""",
     """INSERT INTO documents (company_id, accession, form_type, title, filed, period, period_end, url)
            SELECT company_id, accession, form_type, title, filed, period, period_end, url FROM stage_documents
-           WHERE company_id IN (SELECT company_id FROM new_companies)""",
+           WHERE (company_id, accession) IN (SELECT company_id, accession FROM new_documents)""",
     """INSERT INTO figures (report_id, statement, metric, tag, line_label, period, period_start,
                             period_end, duration, value, unit, is_derived)
            SELECT d.report_id, s.statement, s.metric, s.tag, s.line_label, s.period, s.period_start,
                   s.period_end, s.duration, s.value, s.unit, s.is_derived
            FROM stage_figures s JOIN documents d USING (company_id, accession)
-           WHERE d.company_id IN (SELECT company_id FROM new_companies)""",
+           WHERE (s.company_id, s.accession) IN (SELECT company_id, accession FROM new_documents)""",
     """INSERT INTO metric_tags (company_id, metric, tags, unsupported_reason)
            SELECT company_id, metric, tags, unsupported_reason FROM stage_metric_tags
            WHERE company_id IN (SELECT company_id FROM new_companies)""",
@@ -140,8 +147,8 @@ def load_facts(conn: psycopg.Connection, tables: dict[str, Iterable[dict]]) -> i
     """Load companies, documents, figures and metric_tags (rows as dicts) into the database.
 
     Rows are copied into staging tables first (fast COPY), then moved with plain SQL (MERGE).
-    Companies that are already in the database are skipped, so the bulk load does not duplicate
-    the pilot companies. Returns the number of new companies."""
+    New companies are loaded completely; for companies already in the database only filings filed
+    after the last load are added (see MERGE). Returns the number of new companies."""
     for table, columns in STAGING.items():
         conn.execute(f"CREATE TEMP TABLE stage_{table} ({columns}) ON COMMIT DROP")
     for table, rows in tables.items():

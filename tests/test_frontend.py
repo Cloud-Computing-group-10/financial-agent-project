@@ -33,12 +33,12 @@ def test_page_shows_answer_figures_and_metrics(monkeypatch):
     monkeypatch.setattr(requests, "post", lambda *a, **k: FakeResponse(ANSWER))
 
     at = AppTest.from_file(APP).run()
-    assert at.sidebar.success[0].value == "API connected"
+    assert "API connected" in at.sidebar.markdown[0].value
     at.text_input(key="question").set_value(ANSWER["question"]).run()
     next(b for b in at.button if b.label == "Ask").click().run()
 
     assert not at.exception
-    assert at.markdown[0].value == ":green-badge[Answered]"
-    assert "$120" in at.markdown[1].value
+    page = "\n".join(m.value for m in at.markdown)
+    assert "Answered" in page and "$120" in page
     assert len(at.dataframe) == 1
-    assert [m.value for m in at.metric] == ["1.5 s", "1000", "50", "1"]
+    assert "1.5 s · 1,000 input / 50 output tokens · 1 LLM calls" in page

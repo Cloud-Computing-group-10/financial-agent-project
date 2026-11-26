@@ -48,6 +48,10 @@
   \caption{#2}\label{#3}
   \end{figure}}
 
+% Placeholder for results that are still to be measured:  \resultsplaceholder{what is missing}
+\newcommand{\resultsplaceholder}[1]{%
+  \begin{center}\fbox{\parbox{0.9\linewidth}{\centering\small\color{gray}\textbf{Results to add:}\\[2pt] #1}}\end{center}}
+
 \begin{document}
 
 \input{sections/00_title}

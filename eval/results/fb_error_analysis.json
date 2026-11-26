@@ -1,0 +1,75 @@
+{
+ "transitions": {
+  "correct": {
+   "correct": 102,
+   "incorrect": 2,
+   "declined": 3
+  },
+  "incorrect": {
+   "correct": 4,
+   "incorrect": 15,
+   "declined": 0
+  },
+  "declined": {
+   "correct": 11,
+   "incorrect": 3,
+   "declined": 10
+  }
+ },
+ "causes": {
+  "statement not retrieved": {
+   "n": 14,
+   "correct": 11,
+   "incorrect": 3,
+   "declined": 0
+  },
+  "other page not retrieved": {
+   "n": 9,
+   "correct": 2,
+   "incorrect": 0,
+   "declined": 7
+  },
+  "metric not meaningful for the company": {
+   "n": 2,
+   "correct": 1,
+   "incorrect": 0,
+   "declined": 1
+  },
+  "formula could not be evaluated": {
+   "n": 1,
+   "correct": 0,
+   "incorrect": 0,
+   "declined": 1
+  },
+  "different definition than the gold answer": {
+   "n": 9,
+   "correct": 1,
+   "incorrect": 8,
+   "declined": 0
+  },
+  "rounding or grading strictness": {
+   "n": 2,
+   "correct": 0,
+   "incorrect": 2,
+   "declined": 0
+  },
+  "wrong line item or scope": {
+   "n": 2,
+   "correct": 0,
+   "incorrect": 2,
+   "declined": 0
+  },
+  "wrong reasoning or conclusion": {
+   "n": 5,
+   "correct": 2,
+   "incorrect": 3,
+   "declined": 0
+  },
+  "incomplete list": {
+   "n": 2,
+   "correct": 1,
+   "incorrect": 1,
+   "declined": 0
+  }
+ }
+}

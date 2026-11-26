@@ -17,6 +17,7 @@ RUN python -c "from fastembed import TextEmbedding; TextEmbedding('sentence-tran
 COPY finqa/ finqa/
 COPY spark/ spark/
 COPY frontend/ frontend/
+COPY .streamlit/ .streamlit/
 COPY eval/ eval/
 COPY api.py .
 

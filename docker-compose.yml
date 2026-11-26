@@ -8,6 +8,7 @@
 services:
   db:
     image: pgvector/pgvector:pg16
+    command: postgres -c max_connections=500   # the default 100 is too few for the 1,000-user load test
     environment:
       POSTGRES_USER: finqa
       POSTGRES_PASSWORD: finqa

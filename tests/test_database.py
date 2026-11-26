@@ -107,3 +107,20 @@ def test_a_dominant_listed_namesake_wins(conn):
         conn.execute("""INSERT INTO documents (company_id, accession, form_type, title, filed, period, period_end)
                         VALUES (1, %s, '10-Q', 't', '2020-01-01', 'Q1 2020', '2020-03-31')""", (f"x-{i}",))
     assert [c["company_id"] for c in find_companies(conn, "Acme")] == [1]
+
+
+def test_update_load_adds_only_newly_filed_10qs(loaded):
+    """A later run of the facts load adds the new 10-Q of a company that is already loaded, but not
+    older filings that the first load left out."""
+    A3, OLD = "0000000001-23-000003", "0000000001-22-000009"
+    newer = json.loads(json.dumps(FACTS))
+    newer["facts"]["us-gaap"]["Revenues"]["units"]["USD"] += [
+        {"start": "2023-07-01", "end": "2023-09-30", "val": 130.0, "accn": A3, "filed": "2023-11-01", "form": "10-Q"},
+        {"start": "2022-07-01", "end": "2022-09-30", "val": 95.0, "accn": OLD, "filed": "2022-11-01", "form": "10-Q"},
+    ]
+    assert db.load_facts(loaded, extract_company(newer, ticker="ACME")) == 0  # no new company
+    accessions = {r["accession"] for r in loaded.execute("SELECT accession FROM documents WHERE company_id = 1")}
+    assert A3 in accessions and OLD not in accessions
+    value = loaded.execute("""SELECT f.value FROM figures f JOIN documents d USING (report_id)
+                              WHERE d.accession = %s AND f.period = 'Q3 2023'""", (A3,)).fetchone()
+    assert value["value"] == 130.0

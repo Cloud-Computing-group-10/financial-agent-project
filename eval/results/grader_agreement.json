@@ -1,0 +1,23 @@
+{
+ "model": "claude-sonnet-5-5",
+ "n": 300,
+ "agree": 268,
+ "kappa": 0.836,
+ "confusion": {
+  "correct": {
+   "correct": 125,
+   "incorrect": 8,
+   "declined": 1
+  },
+  "incorrect": {
+   "correct": 4,
+   "incorrect": 74,
+   "declined": 18
+  },
+  "declined": {
+   "correct": 1,
+   "incorrect": 0,
+   "declined": 69
+  }
+ }
+}

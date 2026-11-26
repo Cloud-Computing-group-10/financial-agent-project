@@ -1,0 +1,9 @@
+step,seconds,detail
+1 fetch bulk files,113.8,cores=32
+2 Spark facts job,124.0,cores=32
+3 load facts,16.5,cores=32
+4 manifest,6.8,cores=32
+5 download,12.9,cores=32
+6 Spark text job,25.2,cores=32
+7 load text,2.1,cores=32
+result,0,new_filings=92 manifest=92 new_passages=1950 since=2026-11-21

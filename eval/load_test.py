@@ -35,15 +35,20 @@ def known_parse(q: dict) -> ParsedQuestion:
                           compare=q.get("compare") or "none")
 
 
+def load_questions() -> list[dict]:
+    """Test questions with a known company and quarter that the system should answer."""
+    return [q for q in map(json.loads, (HERE / "questions_v2.jsonl").open())
+            if q["split"] == "test" and q.get("company") in NAMES and q.get("expect") == "answer"
+            and q.get("period") != "latest"]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--users", type=int, nargs="+", default=[1, 10, 50])
     ap.add_argument("--seconds", type=int, default=60)
     args = ap.parse_args()
 
-    questions = [q for q in map(json.loads, (HERE / "questions_v2.jsonl").open())
-                 if q["split"] == "test" and q.get("company") in NAMES and q.get("expect") == "answer"
-                 and q.get("period") != "latest"]
+    questions = load_questions()
     parses = {q["question"]: known_parse(q) for q in questions}
     workflow.parse_question = lambda question, usage: parses[question]
     workflow.compose_explanation = lambda question, passages, num, usage: [
