@@ -51,11 +51,10 @@ ssh -i ~/.ssh/finqa.pem ubuntu@<public-ip>
 
 ## 3. Code and Docker
 
-The repository is private, so copy your checkout from your laptop (this also works for
-uncommitted changes). From the folder above the project:
+Copy the project folder from your laptop to the instance. In the project folder:
 
 ```bash
-rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude data/financebench/pdfs --exclude .env --exclude eval/results/archive -e "ssh -i ~/.ssh/finqa.pem" financial-agent-project ubuntu@<public-ip>:~/
+rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude data/financebench/pdfs --exclude .env --exclude eval/results/archive -e "ssh -i ~/.ssh/finqa.pem" ./ ubuntu@<public-ip>:~/financial-agent-project/
 ```
 
 On the instance:

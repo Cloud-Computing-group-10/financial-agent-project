@@ -56,14 +56,11 @@ The versions we used are listed at the end of this file.
 This builds a small database (3M, Coca-Cola, J&J, Caterpillar, Honeywell; 2022-2023 10-Qs) and
 answers a question. It is the fastest way to check that the code works.
 
-**[laptop]** Clone the repository and create the settings file:
+**[laptop]** Open a terminal in the project folder (the unzipped submission) and create the settings
+file:
 
 ```bash
-git clone https://github.com/Cloud-Computing-group-10/financial-agent-project.git
-```
-
-```bash
-cd financial-agent-project && cp .env.example .env
+cp .env.example .env
 ```
 
 Open `.env` and fill in `ANTHROPIC_API_KEY` and `SEC_USER_AGENT` (your name and email). `.env` is
@@ -127,14 +124,14 @@ The first Qwen call downloads the model from Hugging Face (about 2 GB for 3B, 4.
 - Storage: **250 GB gp3**
 - Optional: IAM instance profile `finqa-ec2` with S3 access, for the S3 copy in step 3
 
-**[laptop]** Protect the key, then copy the code to the instance (the repository is private, so we copy the checkout instead of cloning). Replace `<host>` with the instance's public DNS name:
+**[laptop]** Protect the key, then copy the project folder to the instance (run this in the project folder). Replace `<host>` with the instance's public DNS name:
 
 ```bash
 chmod 400 ~/.ssh/finqa.pem
 ```
 
 ```bash
-cd .. && rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude data/financebench/pdfs --exclude .env --exclude eval/results/archive -e "ssh -i ~/.ssh/finqa.pem" financial-agent-project ubuntu@<host>:~/ && cd financial-agent-project
+rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude data/financebench/pdfs --exclude .env --exclude eval/results/archive -e "ssh -i ~/.ssh/finqa.pem" ./ ubuntu@<host>:~/financial-agent-project/
 ```
 
 ```bash
