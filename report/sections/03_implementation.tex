@@ -166,35 +166,29 @@ Permissions & IAM role with access to our S3 bucket, so no keys are stored on th
 
 \begin{table}[ht]
 \centering\small
-\begin{tabularx}{\linewidth}{Xrl}
+\begin{tabularx}{\linewidth}{Xr}
 \toprule
-Data & Size & \\
+Data & Size \\
 \midrule
-SEC bulk files (\code{companyfacts.zip}, \code{submissions.zip}) & 2.9 GB & measured \\
-140,226 downloaded 10-Q documents (compressed) & about 20 GB & estimated \\
-Passage embeddings (4.55 million $\times$ 384 numbers) & 7.0 GB & computed \\
-Passage text & about 5 GB & estimated \\
-Figures, companies, filings and tags & under 1 GB & estimated \\
-FinanceBench PDFs & 160 MB & measured \\
-Docker image & 2.5 GB & measured \\
+\code{submissions.zip} & 1.5 GB \\
+\code{companyfacts.zip}, unpacked into one JSON file per company & 19 GB \\
+140,226 downloaded 10-Q documents & 17 GB \\
+Passages with embeddings written by Spark (Parquet) & 8.7 GB \\
+Postgres database & 12 GB \\
+\quad of which passage embeddings (4.55 million $\times$ 384 numbers) & 6.7 GB \\
+\quad of which passage text & 3.1 GB \\
+\quad of which figures (3.0 million) and the other tables & 0.9 GB \\
+Docker images (our image 2.6 GB, Postgres, Ollama with Qwen2.5-3B) and build cache & 22 GB \\
 \midrule
-Total & about 40 GB & \\
+Disk in use in total (\code{df}) & 77 GB of 242 GB \\
 \bottomrule
 \end{tabularx}
-\caption{Data stored on the instance. The size of the downloads is estimated from the average
-compressed size of our pilot filings; the embedding size follows from the number of passages.}
+\caption{Data stored on the instance, measured with \code{du}, \code{docker system df} and Postgres'
+\code{pg\_total\_relation\_size} after the full load and the update run. The database is smaller
+than the raw files it was built from; the raw files and Parquet output could be moved to S3 after
+loading.}
 \label{tab:storage}
 \end{table}
-
-\screenshot{EC2 console: the instance list with the running c7i.8xlarge (instance type, state,
-public IP).}{The EC2 instance in the AWS console.}{fig:ec2-console}
-
-\screenshot{EC2 console: the security group's inbound rules (SSH and port 8501 from our own IP).}{The
-security group of the instance.}{fig:security-group}
-
-\screenshot{Terminal on the instance: the end of the pipeline log (batches downloaded and embedded)
-and \code{docker compose ps} with the running containers.}{The pipeline log and the running containers
-on the instance.}{fig:pipeline-log}
 
 The FinanceBench PDFs were processed on a laptop and written into the cloud database through the SSH
 tunnel, which the local Qwen models also used to reach the database during the experiments.

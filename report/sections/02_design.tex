@@ -270,8 +270,13 @@ contains the answer, its status, the figures with links to the filing on the SEC
 passages, any assumptions (for example ``no period given, the latest quarter was used'') and a trace
 of every step with its time. A Streamlit web page shows this to the user (\cref{fig:frontend}).
 
-\screenshot{The Streamlit page with an answered question: the answer, the figures table and one
-expanded passage.}{The web interface.}{fig:frontend}
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.85\linewidth]{figures/frontend.png}
+\caption{The web interface, running on the EC2 instance, with an answered ``why'' question: the
+answer with its references, the figures from the database and one of the cited passages.}
+\label{fig:frontend}
+\end{figure}
 
 \subsection{Cloud architecture}
 
