@@ -1,15 +1,12 @@
 \section{Results}
 
-All numbers below come from the saved runs in \code{eval/results/} and are collected by
-\code{eval/summarize.py} into \code{eval/RESULTS\_v2.md}. Haiku results are the mean $\pm$ standard
-deviation over three runs; Qwen decodes greedily, so it has one run. The 95\% intervals come from a
-bootstrap over the questions (\cref{sec:grading}).
+All numbers below come from the saved experiment runs in our source code. The metrics are defined in
+\cref{sec:metrics}.
 
 \subsection{E1: accuracy on our question set}
 
-\Cref{tab:e1-v2} and \cref{fig:e1-v2} show the accuracy on the 50 test questions. ``Wrong decl.''
-counts questions the system refused although it should have answered (out of 42), ``Wrong'' the
-answers that are simply wrong.
+\Cref{tab:e1-v2,fig:e1-v2} show the results on the 50 test questions, and \cref{tab:e1-cat} breaks
+them down by category.
 
 \begin{table}[ht]
 \centering\small
@@ -21,7 +18,7 @@ System & Model & Accuracy \% & 95\% CI & Wrong decl. & Wrong & Tokens in / out &
 \midrule
 A workflow       & Haiku 5.5   & \textbf{96.0 $\pm$ 0.0} & 90--100 & 0.0 & 2.0 & 2,803 / 305 & 0.43 \\
 A0 template      & Haiku 5.5   & 96.0 $\pm$ 0.0          & 90--100 & 0.3 & 1.7 & 2,384 / 204 & 0.34 \\
-A2 workflow v2   & Haiku 5.5   & 96.0 $\pm$ 0.0          & 90--100 & 0.0 & 2.0 & 3,897 / 305 & 0.54 \\
+A2 with statements & Haiku 5.5   & 96.0 $\pm$ 0.0          & 90--100 & 0.0 & 2.0 & 3,897 / 305 & 0.54 \\
 C simple RAG     & Haiku 5.5   & 68.7 $\pm$ 1.2          & 56--82  & 0.3 & 15.3 & 3,583 / 462 & 0.59 \\
 N closed book    & Haiku 5.5   & 30.7 $\pm$ 1.2          & 20--43  & 11.7 & 23.0 & 112 / 796  & 0.41 \\
 N closed book    & Opus 5.5    & 62                      & 48--74  & 7   & 12   & 112 / 819  & 16.83 \\
@@ -40,7 +37,8 @@ A workflow       & Qwen2.5-3B (EC2 CPU) & 54  & 40--66 & 14 & 9 & 1,052 / 131 & 
 \bottomrule
 \end{tabular}}
 \caption{E1 on our question set (50 test questions). Haiku: mean $\pm$ standard deviation over three
-runs (wrong declines and wrong answers are means); Qwen: one run. Tokens are the mean per question;
+runs (counts are means); Qwen: one run. ``Wrong decl.'' counts refusals of the 42 answerable
+questions. Tokens are the mean per question;
 the last column is the cost per 1,000 questions. Local models cost nothing per question. The last
 row runs Qwen2.5-3B with Ollama on the CPU of the EC2 instance.}
 \label{tab:e1-v2}
@@ -67,8 +65,6 @@ intervals over the 50 questions.}
 \label{fig:e1-v2}
 \end{figure}
 
-\Cref{tab:e1-cat} breaks the results down by category.
-
 \begin{table}[ht]
 \centering\small
 \begin{tabular}{llrrrrrr}
@@ -94,45 +90,28 @@ standard deviation is 0 except for C ``why'' (0.6) and N, where it is 0.6 to 1.5
 \label{tab:e1-cat}
 \end{table}
 
-\paragraph{What the numbers show.}
 \begin{itemize}
   \item \textbf{Numbers are where the workflow wins.} Simple RAG gets at most 6 of 10 changes right,
-        because the statement tables are not in the 10-Q passages and the model only finds numbers
-        that the text happens to mention. The workflow takes them from XBRL and computes the change
-        in SQL, so even Qwen2.5-3B gets 9 of 10. The gap between A and C is larger than the
-        confidence intervals for every model.
-  \item \textbf{Small models gain the most.} With Qwen2.5-7B the workflow reaches 84\% against 38\%
-        for simple RAG on the same passages. A model that runs on a laptop becomes useful once code
-        does the numbers.
-  \item \textbf{The workflow is stable across runs.} All three Haiku runs of A, A0 and A2 gave exactly
-        the same 48 correct answers: the numbers come from SQL, so the model's randomness only
-        affects the wording. Simple RAG and closed book vary by one to three answers between runs.
-  \item \textbf{``Why'' questions are a draw for Haiku} (11 of 12 for A, 10.3 for C). For Qwen2.5-3B
-        they are the weak spot of the workflow (1 of 12): its claims rarely pass the citation check,
-        so the system declines instead of guessing.
-  \item \textbf{Wrong declines come from small models misreading the question} (wrong company or
-        metric): 5--8 of 42 for Qwen on the MacBook and 14 with the Ollama build of Qwen2.5-3B.
-        Haiku had none with A.
-  \item \textbf{Without retrieval the models mostly cannot answer.} The closed-book system N gets
-        31\% with Haiku and 14--18\% with Qwen. Most of its answers say that the model does not know
-        the figure, and the few numbers it gets right are hedged guesses (``around \$2 per share'')
-        that cite no passage a reader could check. The much larger Opus 5.5 is different: without any
-        retrieval it gets 62\% (one run), which we discuss in \cref{sec:contamination}.
-  \item \textbf{Version 2 changes nothing here.} Our questions almost never reach document QA, so A2
-        has the same accuracy as A, at about 1,100 more input tokens per question.
+        because the statement tables are not part of its text passages and the LLM only finds the
+        numbers that the text happens to mention. The workflow takes the figures from the XBRL data and
+        computes the change in SQL, so even the smallest model, Qwen2.5-3B, gets 9 of 10.
+  \item \textbf{Small models gain the most.} With Qwen2.5-7B, which runs on a laptop, the workflow
+        reaches 84\% against 38\% for simple RAG on the same passages.
+  \item \textbf{The workflow is stable.} All three Haiku runs of A, A0 and A2 gave the same 48 correct
+        answers, because the numbers come from SQL and the LLM's randomness only affects the wording.
+  \item \textbf{``Why'' questions are a draw for Haiku} (11 of 12 for A, 10.3 for C), but the weak spot
+        of Qwen2.5-3B (1 of 12): its claims rarely pass the citation check, so the system declines
+        instead of guessing.
+  \item \textbf{Wrong declines come from small models misreading the question}, for example the
+        company or the metric: 5 to 8 of 42 for Qwen on the MacBook and 14 for Qwen on the cloud CPU.
+  \item \textbf{Without retrieval the models mostly cannot answer.} Closed book (N) gets 31\% with
+        Haiku and 14--18\% with Qwen, mostly hedged guesses without a source a reader could check.
+  \item \textbf{The writer improves readability, not correctness.} A and A0 have the same accuracy
+        for every model. Qwen2.5-3B failed the writer check on 25 of 32 answers, mostly by leaving
+        out references, and each of these fell back to the template answer.
 \end{itemize}
 
-\paragraph{The answer writer (A vs.\ A0).} The writer LLM costs one to two seconds and a few hundred
-tokens per answer. It never changed a number that reached the user: Haiku and Qwen2.5-7B passed the
-check on every answer (38 of 38 and 36 of 36 in run 1), while Qwen2.5-3B failed it on 25 of 32
-answers, mostly because it left out the references. Every rejected answer fell back to the template,
-so A and A0 have the same accuracy for all models. The writer makes answers easier to read, but it is
-not needed for correctness.
-
 \subsection{E1: accuracy on FinanceBench}
-
-\Cref{tab:e1-fb} shows FinanceBench. Unlike in the preliminary report, every model now answers all
-150 questions.
 
 \begin{table}[ht]
 \centering\small
@@ -143,7 +122,7 @@ not needed for correctness.
 System & Model & Accuracy \% & 95\% CI & Wrong & Declined & Calc. & Analyst & Other & \$ / 1k q \\
 \midrule
 A workflow    & Haiku 5.5 & 69.1 $\pm$ 1.0 & 63--76 & 22.0 & 24.3 & 35.0 & 29.3 & 39.3 & 0.97 \\
-A2 workflow v2 & Haiku 5.5 & \textbf{74.9 $\pm$ 1.0} & 68--81 & 24.3 & 13.3 & 42.3 & 31.3 & 38.7 & 1.19 \\
+A2 with statements & Haiku 5.5 & \textbf{74.9 $\pm$ 1.0} & 68--81 & 24.3 & 13.3 & 42.3 & 31.3 & 38.7 & 1.19 \\
 C simple RAG  & Haiku 5.5 & 54.4 $\pm$ 1.4 & 47--62 & 29.0 & 39.3 & 26.3 & 23.7 & 31.7 & 0.69 \\
 N closed book & Haiku 5.5 & 21.3 $\pm$ 1.3 & 15--28 & 61.0 & 57.0 & 4.0  & 19.0 & 9.0  & 0.51 \\
 N closed book & Opus 5.5  & 62.7           & 55--70 & 44   & 12   & 41   & 30   & 23   & 17.22 \\
@@ -157,46 +136,44 @@ C simple RAG  & Qwen2.5-3B & \textbf{23.3} & 17--30 & 78 & 37 & 7  & 14 & 14 & 0
 N closed book & Qwen2.5-3B & 2.0  & 0--5   & 52 & 95 & 0  & 2  & 1  & 0 \\
 \bottomrule
 \end{tabular}}
-\caption{E1 on FinanceBench (150 questions, 50 per type). Haiku: mean $\pm$ standard deviation over
-three runs (counts are means); Opus and Qwen: one run. ``Calc.'' is metrics-generated, ``Analyst''
-domain-relevant and ``Other'' novel-generated (correct answers out of 50 each).}
+\caption{E1 on FinanceBench (150 questions). Haiku: mean $\pm$ standard deviation over three runs
+(counts are means); Opus and Qwen: one run. ``Wrong'' and ``Declined'' are counts; ``Calc.'',
+``Analyst'' and ``Other'' are correct answers out of 50 for calculations, analyst-judgement and other
+questions.}
 \label{tab:e1-fb}
 \end{table}
 
 \begin{itemize}
-  \item \textbf{With Haiku the workflow is ahead of simple RAG in every question type,} and version 2
-        adds another 5.8 points (69.1 to 74.9\%, with run-to-run deviations of 1.0). The gain is
-        almost all on calculations (35.0 to 42.3 of 50), and it comes from fewer declines (24.3 to
-        13.3), not from more guessing: the number of wrong answers stays about the same (22.0 and
-        24.3). Code still evaluates every formula from cited inputs; only 3 of 900 workflow answers
-        used an input that was not printed in a retrieved passage, and all three were flagged.
-  \item \textbf{With small models the result flips.} Qwen2.5-7B gets 16\% with the workflow and 23\%
-        with simple RAG. Document QA asks the model for structured output: an answer, cited claims
-        and, for calculations, each input with its passage and a formula. Qwen often cannot produce
-        this from long 10-K passages, so the system declines (90 of 150) instead of guessing. It
-        gives far fewer wrong answers than simple RAG (36 against 64), but also fewer right ones.
-  \item \textbf{Without retrieval, Haiku and Qwen mostly fail,} and they fail badly: closed-book Haiku
-        gives 61 wrong answers, more than any system with retrieval, and Qwen2.5-7B answers almost
-        everything from memory and gets 112 of 150 wrong. A small model that guesses from memory is
-        the most dangerous setup for financial data.
-  \item \textbf{Opus 5.5 without any filing gets 62.7\%,} close to our workflow with Haiku, and 41 of
-        50 calculations. We discuss what this means in \cref{sec:contamination}.
+  \item \textbf{With Haiku the workflow is ahead of simple RAG in every question type}, and A2, which
+        always includes the financial statements, raises accuracy from 69.1\% to 74.9\%. The gain is in
+        calculations (35.0 to 42.3 of 50) and comes from fewer declines (24.3 to 13.3), not from more
+        guessing: the number of wrong answers stays about the same.
+  \item \textbf{With small models the result flips}: Qwen2.5-7B gets 16\% with the workflow and 23\%
+        with simple RAG. The document path asks the LLM for a structured answer with cited inputs and a
+        formula, which Qwen often cannot produce from long annual reports, so the system declines (90
+        of 150). It gives far fewer wrong answers than simple RAG (36 against 64), but also fewer
+        right ones.
+  \item \textbf{A small model answering from memory is the most dangerous setup}: closed-book
+        Qwen2.5-7B gets 112 of 150 wrong.
+  \item \textbf{Closed-book Opus 5.5 scores 62.7\%}, close to our workflow with Haiku. FinanceBench
+        and the filings of these large companies are public, so we assume they are part of this
+        much larger model's training data. Its answers cite no source, and it cannot know about
+        filings published after its training. A benchmark built from older filings of large companies,
+        including ours, should therefore always be compared with a closed-book baseline.
 \end{itemize}
 
-\subsection{Why version 2 helps: FinanceBench error analysis}
+\subsection{FinanceBench error analysis}
 \label{sec:fb-errors}
 
-After the first run we read all 46 answers of version 1 (Haiku, run 1) that were wrong or declined,
-together with the gold answer and its evidence page, and assigned each to one cause. Only then did we
-build version 2, and we ran it once on all questions without further changes. \Cref{tab:fb-errors}
-lists the causes and what version 2 does with the same questions (majority verdict of its three
-runs).
+To understand the failures, we read all 46 answers of the workflow A (Haiku, first run) that were wrong
+or declined, together with the correct answer and its evidence page, and assigned each to one cause
+(\cref{tab:fb-errors}). This analysis is what led to A2.
 
 \begin{table}[ht]
 \centering\small
 \begin{tabularx}{\linewidth}{Xrrrr}
 \toprule
-Cause of the v1 failure & $n$ & v2 correct & v2 wrong & v2 declined \\
+Cause of the failure of A & $n$ & A2 correct & A2 wrong & A2 declined \\
 \midrule
 A financial statement was needed but not retrieved & 14 & \textbf{11} & 3 & 0 \\
 Another page was not retrieved (cover page, debt table, earnings release) & 9 & 2 & 0 & 7 \\
@@ -211,130 +188,24 @@ Formula could not be evaluated & 1 & 0 & 0 & 1 \\
 Total & 46 & 18 & 19 & 9 \\
 \bottomrule
 \end{tabularx}
-\caption{Causes of the 46 wrong or declined answers of version 1 (Haiku, run 1), and the verdict of
-version 2 on the same questions (majority verdict of its three runs).}
+\caption{Causes of the 46 wrong or declined FinanceBench answers of the workflow A (Haiku, first
+run), and the majority verdict of A2 over its three runs on the same questions.}
 \label{tab:fb-errors}
 \end{table}
 
-\paragraph{What the analysis shows.} Half of the declines (14 of 26) had the same cause: the
-calculation needed a line of the balance sheet, income statement or cash-flow statement, and the
-search did not return that page. Version 2 fixes 11 of these 14. Over all 150 questions (majority of
-three runs), 11 declines and 4 wrong answers of version 1 become correct, while 5 correct answers get
-worse, so the net gain is 10 questions. The remaining failures need different fixes:
-\begin{itemize}
-  \item \textbf{Definitions.} Nine ``wrong'' answers computed a reasonable but different metric, for
-        example the quick ratio as (cash + receivables) / current liabilities instead of the gold
-        answer's (current assets $-$ inventory) / current liabilities. These are differences of
-        convention rather than reading errors; stating the definition in the answer, which the
-        workflow does, lets a reader see it.
-  \item \textbf{Pages outside the statements.} Questions about the cover page (``Which debt securities
-        are registered\ldots''), a debt maturity table or an earnings release still fail because
-        search does not find the page; v2 mostly declines them, which is the right behaviour when the
-        evidence is missing.
-  \item \textbf{Judgement.} Questions such as ``Is 3M a capital-intensive business?'' have no single
-        right number. The workflow answers with one metric and the gold answer uses another.
-\end{itemize}
-Because version 2 was motivated by failures on FinanceBench itself, its FinanceBench score is
-somewhat optimistic. We limited this by making one general change, choosing it before running it, and
-not tuning anything after the run; the same change makes no difference on our own question set,
-where the statements are already covered by SQL.
-
-\subsection{Is FinanceBench in the training data?}
-\label{sec:contamination}
-
-Closed-book Haiku gets 21\% of FinanceBench, but closed-book Opus 5.5 gets 62.7\%, including 41 of 50
-calculations such as ``What is the FY2018 capital expenditure amount for 3M?'' without seeing the
-filing. There are two possible reasons: Opus has memorised the figures of these well-known companies'
-10-Ks, or it has seen FinanceBench itself, which has been public since 2023 with its answers.
-To tell these apart, we also ran closed-book Opus on our own question set, which did not exist
-before this project. It gets 62\% there as well (31 of 50, 95\% interval 48--74), for example 3M's Q2
-2023 net sales of \$8,325 million and Tesla's gross profit for Q3 2024, both from memory. It cannot
-answer for the latest quarter (Q3 2026), which came after its training data: it lists older quarters
-instead and says it does not know whether newer ones exist. So Opus has not simply memorised
-FinanceBench. It has memorised the reported figures of large US companies up to its training cut-off,
-which our ten companies and FinanceBench's 40 have in common. Its answers are still not usable as they
-are: they are marked from memory'', cite no passage, and 12 of the 50 are wrong.
-
-This has two consequences. First, any benchmark built from the filings of large companies before a
-model's cut-off, ours included, cannot show on its own whether a large model reads the document or
-remembers the answer; a closed-book run of the same model is the baseline that retrieval has to beat.
-Second, the value of retrieval for a strong model is less in the score than in what it adds to it:
-answers about filings after the cut-off (new quarters, and the thousands of smaller companies in the database),
-and a citation to the exact passage or XBRL fact, so that a reader can check every number.
-
-\subsection{Examples}
-\label{sec:examples}
-
-\paragraph{Retrieval.} \Cref{tab:retrieval-example} shows the top three passages of each search
-method for two ``why'' questions, searched in the MD\&A of the correct 10-Q. For Coca-Cola all three
-hybrid results contain the gold reasons (``favorable pricing initiatives'', ``favorable channel and
-package mix''); BM25 and semantic search each put a less useful passage first. Searching the whole
-filing instead of the MD\&A makes semantic search worse: its top three are the accounting-policy note,
-the exhibit index and the equity table, which are about ``Coca-Cola'' and ``Q2 2023'' in general. For
-3M no method finds the reasons in the top three: the evidence (``disposable respirator sales
-decline'') sits in the segment discussion, while the top results are the general overview, which
-uses the question's words (``sales'', ``second quarter'') more often. The workflow then gives the
-figures but only part of the explanation, which is what happened in E1.
-
-\begin{table}[ht]
-\centering\small
-\begin{tabularx}{\linewidth}{llX}
-\toprule
-Method & Hits & Top three passages (section › heading) \\
-\midrule
-\multicolumn{3}{l}{\emph{``Why did Coca-Cola's operating income increase in Q2 2023?''}} \\
-BM25     & 2 of 3 & Equity income (miss); Operating income: Global Ventures (hit); Operating income: Latin America (hit) \\
-Semantic & 2 of 3 & Unit case volume (miss); Operating income: Asia Pacific (hit); Global Ventures (hit) \\
-Hybrid   & 3 of 3 & Operating income: Global Ventures, Latin America, Asia Pacific (all hits) \\
-\midrule
-\multicolumn{3}{l}{\emph{``Why did 3M's sales drop in Q2 2023?''}} \\
-BM25     & 0 of 3 & Overview: financial condition; Results of operations: ERP system; Overview \\
-Semantic & 0 of 3 & Overview; Overview: financial condition; Financial condition and liquidity \\
-Hybrid   & 0 of 3 & Overview: financial condition; Overview; Results of operations \\
-\bottomrule
-\end{tabularx}
-\caption{Real search results for two ``why'' questions (MD\&A only). A hit contains one of the
-question's evidence phrases.}
-\label{tab:retrieval-example}
-\end{table}
-
-\paragraph{Declines.} \Cref{tab:decline-examples} shows how the workflow (Haiku) answered the decline
-questions. Each refusal names its reason, which comes from code, not from the LLM: the company is not
-in the database, the period would need a 10-K, the company does not report the metric in its XBRL
-data, or the passages do not contain the answer. The one ``failure'' is instructive: we expected the
-system to decline Coca-Cola's gross margin because margins are not one of our ten metrics, but
-document QA found the sentence ``gross profit margin increased to 59.0 percent'' in the 10-Q and
-answered correctly with a citation. Our answer key was stricter than necessary here. The closed-book
-system, in contrast, answered two decline questions from memory, for example a figure that is only in
-a 10-K.
-
-\begin{table}[ht]
-\centering\small
-\begin{tabularx}{\linewidth}{XX}
-\toprule
-Question & Answer of the workflow (status) \\
-\midrule
-What was IKEA's revenue in Q2 2024? & Not enough evidence: no filings for `IKEA' are loaded.
-  (abstain) \\
-What was Johnson \& Johnson's Q4 2023 revenue? & No filing of Johnson \& Johnson for Q4 2023 is
-  loaded (Q4 data is not reported in 10-Q filings). (abstain) \\
-What was 3M's R\&D expense in Q2 2023? & 3M does not report research \& development expense in its
-  10-Q data (none of the XBRL tags \ldots\ is reported). (abstain) \\
-Why did 3M's stock price fall after the earnings release? & The filing passages do not answer this
-  question. (abstain) \\
-What was Coca-Cola's gross margin percentage in Q2 2023? & Gross profit margin was 59.00 percent
-  [C321889]. (answered; expected a decline) \\
-\bottomrule
-\end{tabularx}
-\caption{Answers of the workflow to decline questions of our test set (Haiku 5.5).}
-\label{tab:decline-examples}
-\end{table}
+Half of the declines (14 of 26) needed a line of a financial statement that the search did not find;
+A2 fixes 11 of them. Over all 150 questions A2 is right on 10 more questions than A. Nine ``wrong''
+answers used a reasonable but different definition than the analysts, for example of the quick ratio.
+Questions about pages outside the statements, such as the cover page or a debt table, still fail at
+the search step, and A2 mostly declines them. Because A2 was motivated by FinanceBench failures, its
+FinanceBench score is somewhat optimistic; we limited this by making one general change, choosing it
+before running it, and not tuning anything afterwards.
 
 \subsection{E2: retrieval}
 
-\Cref{tab:e2} compares the three search methods without any LLM. For our ``why'' questions a hit is
-a passage that contains one of the evidence phrases; for FinanceBench it is a passage from the
-evidence page. MRR is the mean reciprocal rank of the first hit in the top 10.
+\Cref{tab:e2} compares the three search methods without any LLM. For our ``why'' questions a correct
+passage contains one of the evidence phrases of the answer; for FinanceBench it comes from the evidence
+page.
 
 \begin{table}[ht]
 \centering\small
@@ -354,17 +225,14 @@ with 12 questions one question changes hit@1 by 0.08.}
 \label{tab:e2}
 \end{table}
 
-Hybrid search puts the right passage first twice as often as BM25 on ``why'' questions and has the
-best MRR on both sets, at the same speed, so it is the default. The development questions set the
-evidence threshold to a cosine similarity of 0.45: the lowest top score of a development search that
-found its evidence was 0.464, and our first guess of 0.55 would have declined 3 of 8 answerable
-questions. FinanceBench is harder for search (hit@10 of 0.65) because its evidence is often a table
-in a 100-page 10-K, which is exactly the gap that version 2 closes by giving the statements directly.
-With only 12 ``why'' questions the differences between the methods are small in absolute terms (one
-question is 0.08), so we read E2 as ``hybrid is at least as good as either method alone'' rather than
-as a precise ranking.
+Hybrid search puts a correct passage first twice as often as BM25 on ``why'' questions and has the best
+MRR on both sets at the same speed, so it is the default. With only 12 ``why'' questions, one question
+changes hit@1 by 0.08, so we read this as ``hybrid is at least as good as either method alone''.
+FinanceBench is harder for search because the evidence is often a table in a 100-page annual report,
+which is exactly what A2 addresses.
 
-\subsection{E3: latency per step}
+\subsection{E3 and E4: latency and load}
+\label{sec:e4}
 
 \begin{table}[ht]
 \centering\small
@@ -386,16 +254,12 @@ answered questions of one run (18 number and 11 ``why'' questions).}
 \label{tab:e3}
 \end{table}
 
-Our own steps (SQL and search) take less than 10 ms per question. Everything else is LLM time: an LLM
-call takes 100 to 1,000 times longer than the rest of the pipeline. Running Qwen2.5-3B on the CPU of
-the instance works without any API key, but it is slower and less accurate (54\%) than the same
-model on a laptop's Apple GPU (62\%, 9 s per question including the SSH tunnel).
-
-\subsection{E4: load test}
-\label{sec:e4}
-
-\paragraph{The pipeline in one process.} With the LLM steps replaced by fixed outputs, only SQL,
-search and code run (\cref{tab:e4}).
+Our own steps, SQL and search, take less than 10 ms per question (\cref{tab:e3}). Everything else is
+LLM time: an LLM call takes 100 to 1,000 times longer. Running Qwen2.5-3B on the cloud CPU needs no
+API key, but it is slower and less accurate (54\%) than the same model on a laptop GPU (62\%). Without
+the LLM, one Python process answers about 280 questions per second at 10 simultaneous users
+(\cref{tab:e4}). At 50 users it is saturated, because one Python process uses one core at a time;
+more processes or machines behind a load balancer are the next step.
 
 \begin{table}[ht]
 \centering\small
@@ -412,22 +276,6 @@ Concurrent users & Questions / s & Median ms & p95 ms \\
 (30 seconds per step).}
 \label{tab:e4}
 \end{table}
-
-One Python process serves about 280 questions per second at 10 users. At 50 users it is saturated
-and latency grows, because one Python process runs Python code on one core at a time; more worker
-processes, or several instances behind a load balancer, are the next step.
-
-\paragraph{The HTTP API on three instance sizes.} The second part of E4 tests the deployed API with
-up to 1,000 users on c7i.large, c7i.xlarge and c7i.2xlarge (\cref{sec:experiments-e4}). Two changes
-were needed before it could work at all. A request used to open its database connection before the
-LLM parse step, so 1,000 requests waiting for an LLM would have held 1,000 connections, ten times
-Postgres' default limit of 100; the connection is now opened after the parse, and the limit is
-raised to 500. And FastAPI serves synchronous requests from a pool of 40 threads per process, which
-would cap the number of requests waiting for an LLM at the same time; the test server raises it.
-
-\resultsplaceholder{E4 HTTP results: answers per second, median / p95 / p99 latency and error rate
-for 1--1,000 users on c7i.large, c7i.xlarge and c7i.2xlarge, with no LLM wait and with a 5-second
-LLM wait. To be run once the AWS vCPU quota allows the three extra instances.}
 
 \subsection{E5: Spark scaling}
 \label{sec:e5}
@@ -468,19 +316,16 @@ company files; one run per core count.}
 \label{fig:e5}
 \end{figure}
 
-Both jobs scale well up to 8 cores (5.2 times faster) and still gain up to 16. Going from 16 to 32
-adds little, for two reasons: the 32 vCPUs are only 16 physical cores, and Spark's fixed start-up
-time weighs more on these small test jobs. On the full batches of 2,000 filings the instance reached
-130 to 190 passages per second.
+Both jobs scale well up to 8 cores (5.2 times faster) and still gain up to 16 (\cref{fig:e5}). From 16
+to 32 they gain little, because the 32 vCPUs are 16 physical cores and Spark's fixed start-up time
+weighs more on these small test jobs. On the full data the machine embedded 130 to 190 passages per
+second.
 
 \subsection{E6: updates with new filings}
 \label{sec:e6}
 
-\Cref{tab:e6} shows the update run of 26 November 2026. Since the last load (filings up to 20
-November) the SEC had received 92 new 10-Qs, including three companies that were not in the database
-yet. The whole update took five minutes. 53 of the 92 filings had an MD\&A section that our splitter
-recognised; they gave 1,950 new passages. (The share is the same as in the full run, where 72\% of
-the 10-Qs got text.)
+\Cref{tab:e6} shows one update run, which added 92 new 10-Qs, three of them from companies that were
+not yet in the database, in five minutes.
 
 \begin{table}[ht]
 \centering\small
@@ -499,23 +344,15 @@ Step (c7i.8xlarge, 32 vCPUs) & Seconds \\
 Total & 301 \\
 \bottomrule
 \end{tabularx}
-\caption{E6: one update run, adding the 10-Qs filed from 21 to 26 November 2026.}
+\caption{E6: one update run, adding 92 new 10-Qs.}
 \label{tab:e6}
 \end{table}
 
-\paragraph{How much does a busy day need?} Late November is a quiet time. \Cref{fig:filings-per-day}
-shows how many 10-Qs the SEC receives per day: about 17,500 a year, but very unevenly. On a median
-day there are only 16, while in the two weeks after each quarter's deadline there are several hundred
-per day, with a maximum of 718 (7 November 2024). For the busiest day we can estimate the update time
-from the measured rates. The download is limited by the SEC to under 10 requests per second, so 718
-filings take about 90 seconds on any instance. At about 37 passages per filing, they give about
-26,600 passages to embed: about 3 minutes at the 130--190 passages per second of the c7i.8xlarge,
-or about 16 minutes on a c7i.large with 2 vCPUs (27 passages per second in E5). Adding the bulk
-download and the facts job (2 to 3 minutes), even the busiest day of the year is updated in under
-10 minutes on the large instance and in about 25 minutes on the smallest one. A daily update
-therefore does not need the large instance at all: a small instance that runs once a night is enough,
-and the large one is only needed for the first full load, which processed the 140,000 10-Qs of seven
-years in about 9 hours.
+The number of new filings varies strongly over the year (\cref{fig:filings-per-day}): the SEC receives
+about 17,500 10-Qs a year, 16 on a median day but up to 718 on the busiest day. From the measured
+rates, such a day takes about 90 seconds to download, because of the SEC limit, and about 3 minutes to
+embed on the c7i.8xlarge, or 16 minutes on a small 2-vCPU instance. A daily update therefore needs
+only a small machine; the large one is only needed for the first full load.
 
 \begin{figure}[ht]
 \centering

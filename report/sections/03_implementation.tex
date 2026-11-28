@@ -1,9 +1,19 @@
 \section{Methodology: implementation and deployment}
 \label{sec:implementation}
 
+This chapter describes how the design is implemented and deployed. For further details on the setup
+and on reproducing every step and experiment, see the file
+\href{https://github.com/Cloud-Computing-group-10/financial-agent-project/blob/feature/cloud-app/REPRODUCE.md}{\code{REPRODUCE.md}}
+in our source code.
+
 \subsection{Tech stack}
 
-The system is written in Python 3.12. \Cref{tab:stack} lists the main components and their versions.
+The system is written in Python. \Cref{tab:stack} lists its main components. All LLM calls go through
+one module, so the same workflow code runs with the hosted Claude model, with Qwen on a laptop, or
+with Qwen served on the cloud machine. One Docker image contains the code, Spark and the embedding
+model, and the same Docker Compose file starts the system on a laptop and on AWS. Automated tests
+check the rules that decide correctness (periods, metric tags, routing, company lookup, passage
+splitting, the formula evaluator and the answer check) and run on every change to the code.
 
 \begin{table}[ht]
 \centering\small
@@ -11,113 +21,25 @@ The system is written in Python 3.12. \Cref{tab:stack} lists the main components
 \toprule
 Component & Used for \\
 \midrule
-Postgres 16 + pgvector 0.5 & Figures, filings and passages with their embeddings, in one database \\
-PySpark 4.3 (local mode) & The two batch jobs: XBRL facts to Parquet, and 10-Q text to embedded passages \\
-fastembed 0.9 (MiniLM-L6, ONNX on CPU) & 384-dimension embeddings of passages and questions \\
-rank\_bm25 & BM25 ranking of the candidate passages \\
-BeautifulSoup, pypdf & 10-Q HTML and FinanceBench PDFs to text \\
-Pydantic & Schemas for the LLM's structured output (parse, claims, document QA) \\
-FastAPI 0.163 and Streamlit 1.67 & The HTTP service and the web page \\
-Docker and Docker Compose & One image for every part; the same compose file on the laptop and on EC2 \\
+Postgres 16 + pgvector & Figures, filings and passages with their embeddings, in one database \\
+PySpark (local mode) & The two batch jobs: XBRL figures to tables, and 10-Q text to embedded passages \\
+fastembed (MiniLM-L6 on CPU) & Embeddings of passages and questions \\
+BeautifulSoup, pypdf & 10-Q web pages and FinanceBench PDFs to text \\
+FastAPI, Streamlit & The HTTP service and the web page \\
+Docker, Docker Compose & One image for every part; the same setup on the laptop and on EC2 \\
 Claude Haiku 5.5 (Anthropic API) & Hosted LLM for the system and for grading \\
-Qwen2.5 3B and 7B (4-bit) & Local LLMs: mlx-lm on a MacBook (Apple GPU), Ollama 0.6 on the EC2 CPU \\
-pytest + GitHub Actions & 37 tests, run on every push against a real Postgres with pgvector \\
-Git and GitHub & Version control and collaboration \\
+Qwen2.5 3B and 7B & Local LLMs: on a MacBook GPU (mlx-lm) or on the EC2 CPU (Ollama) \\
+pytest, GitHub Actions & 37 automated tests on every push \\
 \bottomrule
 \end{tabularx}
 \caption{Main components.}
 \label{tab:stack}
 \end{table}
 
-\subsection{Code structure}
-
-\begin{table}[ht]
-\centering\small
-\begin{tabularx}{\linewidth}{lX}
-\toprule
-File & What it does \\
-\midrule
-\code{finqa/parse.py}     & Steps 1 and 2: LLM parse with a JSON schema, then the code checks \\
-\code{finqa/workflow.py}  & Router, SQL templates, number path, ``why'' path, the answer object \\
-\code{finqa/docqa.py}     & Document QA: search one filing, input check, arithmetic-only formula evaluator \\
-\code{finqa/writer.py}    & Final answer from verified facts; rejects new numbers or unknown references \\
-\code{finqa/companies.py} & Finds the company named in the question \\
-\code{finqa/search.py}, \code{embed.py} & BM25, semantic and hybrid search; embeddings \\
-\code{finqa/facts.py}     & XBRL facts to figure rows (used by the pilot load and by Spark) \\
-\code{finqa/text.py}, \code{pdf\_docs.py} & 10-Q HTML and FinanceBench PDFs to sections and passages \\
-\code{finqa/filings.py}   & List of all 10-Qs to download, and the resumable download \\
-\code{finqa/db.py}, \code{load\_bulk.py} & Schema, connection, bulk loading of the Spark output \\
-\code{finqa/llm.py}       & All LLM calls, for every backend \\
-\code{finqa/config.py}    & Metrics and tags, thresholds, evaluation companies \\
-\code{spark/}             & The Spark jobs for facts and text \\
-\code{finqa/rag\_baseline.py}, \code{closed\_book.py} & Baselines C and N \\
-\code{api.py}, \code{frontend/app.py} & HTTP API and web page \\
-\code{eval/}              & Question set, answer key, experiment runner, grader, load test, summary \\
-\code{cloud/}             & Instance setup, bulk download, full pipeline, scaling experiment, S3 backup \\
-\code{tests/}             & Unit and database tests \\
-\bottomrule
-\end{tabularx}
-\caption{Code structure (repository branch \code{main}).}
-\label{tab:code}
-\end{table}
-
-\subsection{LLM backends}
-
-All LLM calls go through one module, \code{finqa/llm.py}. It offers two kinds of call: structured
-output that must match a Pydantic schema (used for the parse, the claims and document QA), and plain
-text (used for the writer and the baselines). It also counts tokens and calls for every question.
-A preset name selects the backend and model (\cref{tab:presets}); it can be set in the environment,
-on the command line of the experiments, or per request through the API. The same workflow code
-therefore runs unchanged with every model.
-
-\begin{table}[ht]
-\centering\small
-\begin{tabularx}{\linewidth}{llX}
-\toprule
-Preset & Backend & Model and where it runs \\
-\midrule
-\code{claude}    & Anthropic API & Claude models; we used \code{claude-haiku-5-5} \\
-\code{qwen}, \code{qwen-3b} & mlx-lm & Qwen2.5-7B / 3B Instruct, 4-bit, on the Apple GPU of a MacBook \\
-\code{ollama}, \code{ollama-3b} & OpenAI-compatible & Qwen2.5-7B / 3B served by Ollama, e.g.\ on the EC2 CPU \\
-\code{hkust}, \code{chatgpt} & OpenAI-compatible & The university's GPT gateway or the OpenAI API (not used in the results) \\
-\bottomrule
-\end{tabularx}
-\caption{LLM presets.}
-\label{tab:presets}
-\end{table}
-
-\subsection{Containers}
-
-One Docker image (\code{Dockerfile}) holds everything: Python 3.12, a Java runtime for Spark, the
-Python packages and the embedding model, which is downloaded when the image is built so that no
-container needs to fetch it at run time. \code{docker-compose.yml} starts the services in
-\cref{tab:compose} from this image. The same file is used on the laptop and on EC2.
-
-\begin{table}[ht]
-\centering\small
-\begin{tabularx}{\linewidth}{lllX}
-\toprule
-Service & Image & Port & Role \\
-\midrule
-\code{db}       & \code{pgvector/pgvector:pg16} & 5432 & Postgres with pgvector; data in a named volume; health check before the API starts \\
-\code{api}      & \code{finqa} (our image) & 8080 & FastAPI service (\code{uvicorn api:app}); also used to run the Spark jobs and loaders with \code{docker compose run} \\
-\code{frontend} & \code{finqa} & 8501 & Streamlit page; calls the API at \code{http://api:8080} \\
-\code{ollama}   & \code{ollama/ollama:0.6.2} & -- & Optional (profile \code{ollama}): Qwen on the CPU, context set to 16k tokens \\
-\bottomrule
-\end{tabularx}
-\caption{Docker Compose services.}
-\label{tab:compose}
-\end{table}
-
-The \code{data/} and \code{eval/} folders are mounted into the containers, so downloads, Spark
-output and experiment results are written to the host disk and survive a rebuild. API keys come from
-a \code{.env} file that is never committed; \code{.env.example} lists the variables.
-
 \subsection{Data pipeline}
 
-One script, \code{cloud/run\_pipeline.sh}, runs the whole pipeline on the instance
-(\cref{fig:pipeline,tab:pipeline}). Every step skips work that is already done, so a stopped run can
-simply be started again.
+One script runs the whole pipeline on the cloud machine (\cref{fig:pipeline,tab:pipeline}). Every
+step skips work that is already done, so an interrupted run simply continues.
 
 \begin{figure}[ht]
 \centering
@@ -125,18 +47,18 @@ simply be started again.
   st/.style={draw,rounded corners=2pt,align=center,font=\footnotesize,text width=26mm,minimum height=11mm},
   sp/.style={st,fill=llmbox},
   arr/.style={-{Stealth[length=2mm]},thick}]
-  \node[st] (fetch) at (0,0)     {SEC bulk files\\\code{fetch\_bulk.sh}};
+  \node[st] (fetch) at (0,0)     {SEC bulk files};
   \node[sp] (fj)    at (3.6,0)   {Spark facts job\\JSON $\to$ Parquet};
-  \node[st] (lf)    at (7.2,0)   {Load figures\\COPY + merge};
+  \node[st] (lf)    at (7.2,0)   {Load figures};
   \node[st] (pg)    at (10.8,-1.2) {Postgres\\+ pgvector};
-  \node[st] (man)   at (0,-2.4)  {Manifest\\140,226 10-Qs};
-  \node[st] (dl)    at (3.6,-2.4) {Download\\8 req/s, batches};
+  \node[st] (man)   at (0,-2.4)  {List of\\140,226 10-Qs};
+  \node[st] (dl)    at (3.6,-2.4) {Download\\8 requests/s};
   \node[sp] (tj)    at (7.2,-2.4) {Spark text job\\split + embed};
   \draw[arr] (fetch)--(fj); \draw[arr] (fj)--(lf); \draw[arr] (lf)--(pg);
   \draw[arr] (fetch)--(man); \draw[arr] (man)--(dl); \draw[arr] (dl)--(tj); \draw[arr] (tj)--(pg);
 \end{tikzpicture}
-\caption{The data pipeline. Shaded steps are Spark jobs. The text job processes each finished
-download batch while the next batches are still downloading.}
+\caption{The data pipeline. Shaded steps are Spark jobs. The text job processes downloaded documents
+while later ones are still downloading.}
 \label{fig:pipeline}
 \end{figure}
 
@@ -148,65 +70,28 @@ Step & Time on c7i.8xlarge \\
 \midrule
 Download the SEC bulk files (\code{companyfacts.zip}, \code{submissions.zip}) & under 2 min \\
 Spark facts job: 20,609 company files $\to$ Parquet & 40 s \\
-Load the figures into Postgres (bulk \code{COPY}, then an SQL merge) & 60 s \\
-List all 10-Qs since 2019 from \code{submissions.zip} (140,226 filings) & 20 s \\
+Load the figures into Postgres & 60 s \\
+List all 10-Qs since 2019 (140,226 filings) & 20 s \\
 Download the 10-Qs at 8 requests/s, in 71 batches of 2,000 & about 5 h \\
-Spark text job per finished batch: split MD\&A into passages, embed, load & about 8 h (overlaps) \\
+Spark text job: split into passages, embed, load & about 8 h (overlaps the download) \\
 \bottomrule
 \end{tabularx}
 \caption{Pipeline steps and their run time on the full data.}
 \label{tab:pipeline}
 \end{table}
 
-\paragraph{1. Bulk files.} \code{cloud/fetch\_bulk.sh} downloads \code{companyfacts.zip},
-\code{submissions.zip} and the ticker list from the SEC, with a contact address in the User-Agent
-header as the SEC requires, and unpacks the company facts into one JSON file per company.
+The download of the 10-Qs stays just under the SEC's limit of 10 requests per second and stores each
+document compressed. Computing embeddings is the most expensive step, so for most companies we keep
+only the MD\&A section, which contains the explanations, rather than every section. This keeps about
+30\% of the text. For the ten companies of our question set and the FinanceBench filings we keep
+every section.
 
-\paragraph{2. Spark facts job.} \code{spark/facts\_job.py} reads the 20,609 company files in
-parallel. For each file it runs the same Python function as the pilot (\code{facts.extract\_company}),
-which keeps only 10-Q facts, labels the periods, chooses the tag per filing and derives the
-cash-flow quarters. The output is one Parquet dataset per table, plus two small reports built with
-DataFrame aggregations: how many companies each metric covers, and where a filing restates a value.
-
-\paragraph{3. Loading.} \code{finqa/load\_bulk.py} copies the Parquet rows into temporary staging
-tables with Postgres' fast \code{COPY}, and then moves them into the real tables with plain SQL.
-New companies are loaded completely; for a company that is already in the database only the 10-Qs
-filed after the last load are added (\cref{sec:update}). Loading the same data twice therefore
-changes nothing.
-
-\paragraph{4. Manifest and download.} \code{finqa/filings.py} reads \code{submissions.zip} to find the
-main HTML document of every 10-Q since 2019 that has no text yet, and writes a list of 140,226
-filings in numbered batches of 2,000. The download then fetches them with eight threads at about 8
-requests per second, just under the SEC's limit of 10. Each file is stored compressed, and a batch
-is marked finished with a \code{\_DONE} file, so a stopped download continues where it left off.
-
-\paragraph{5. Spark text job.} \code{spark/text\_job.py} processes every batch that has finished
-downloading and has no output yet. Each filing is split into sections and passages
-(\cref{sec:retrieval}); only the MD\&A passages are kept, except for the ten evaluation companies;
-and every passage is embedded. The output is one Parquet folder per batch, which is then loaded into
-the \code{chunks} table. The pipeline script runs this job every two minutes while the download is
-still going, so splitting and embedding overlap with downloading.
-
-\paragraph{Why only MD\&A for the bulk text.} Embedding is the slow step, about 5 passages per second
-per vCPU. All sections of every 10-Q would give about 18 million passages and take about 33 hours on
-this machine. The MD\&A is about 30\% of the passages and holds the reasons that ``why'' questions
-need, so the bulk run keeps only the MD\&A. For the ten companies of our question set and for the 84
-FinanceBench filings we keep every section, and for the FinanceBench PDFs we keep the tables too.
-
-\paragraph{Problems found only by the full run.} Running on all filers exposed problems that a
-ten-company pilot never showed. 70 company files were empty or incomplete; 109 10-Qs were filed
-jointly by two companies and had to be stored once per company; 879 companies were stored with a
-preferred-share ticker such as \code{BA-PA} instead of the common one; and ``Honeywell'' matched
-both Honeywell International and a new listing called Honeywell Aerospace. We fixed each of them in
-code, with a test, and reloaded.
-
-\subsection{Data aggregation with Spark}
+\subsection{Data processing with Spark}
 \label{sec:spark}
 
-Both batch jobs follow the same pattern: many independent input files, the same Python function on
-each, and a few aggregations over the result. Spark spreads this over all cores of the machine; the
-code would run unchanged on a cluster with \code{s3://} paths. \Cref{fig:spark} shows the steps of
-the facts job.
+Both batch jobs apply the same Python function to many independent input files and then combine the
+results. Spark divides the files into partitions and processes them in parallel on all cores of the
+machine.
 
 \begin{figure}[ht]
 \centering
@@ -216,7 +101,7 @@ the facts job.
   arr/.style={-{Stealth[length=2mm]},thick}]
   \node[st] (in)  at (0,0)     {20,609 JSON files\\(1 per company)};
   \node[sp] (rd)  at (3.3,0)   {\code{wholeTextFiles}\\128 partitions};
-  \node[sp] (fm)  at (6.6,0)   {\code{flatMap}\\\code{extract\_company}};
+  \node[sp] (fm)  at (6.6,0)   {\code{flatMap}\\extract figures};
   \node[sp] (ca)  at (9.9,0)   {\code{cache}\\(table, row) pairs};
   \node[sp] (fi)  at (9.9,-2.2) {\code{filter} by table\\$\to$ DataFrame};
   \node[st] (pq)  at (6.6,-2.2) {Parquet: companies, documents, figures, tags};
@@ -225,131 +110,41 @@ the facts job.
   \draw[arr] (in)--(rd); \draw[arr] (rd)--(fm); \draw[arr] (fm)--(ca); \draw[arr] (ca)--(fi);
   \draw[arr] (fi)--(pq); \draw[arr] (pq)--(gb); \draw[arr] (gb)--(rep);
 \end{tikzpicture}
-\caption{The Spark facts job. Shaded boxes are Spark operations; the company files are processed in
-parallel, one task per partition.}
+\caption{The Spark facts job. Shaded boxes are Spark operations; each partition is processed by one
+core.}
 \label{fig:spark}
 \end{figure}
 
-\paragraph{Facts job.} \code{wholeTextFiles} reads the company files as (path, text) pairs. With
-default settings it makes only two partitions, so we ask for four per core (128 on the c7i.8xlarge),
-which keeps every core busy even though company files range from a few kilobytes to 30 MB.
-\code{flatMap} runs \code{facts.extract\_company} on each file and turns it into (table, row) pairs
-for the four tables; the ticker list is sent to every worker once as a broadcast variable. The result
-is cached, because it is read four times: one \code{filter} per table, each converted to a DataFrame
-with a fixed schema and written as Parquet. In total the job writes 9,695 companies, 140,436 10-Qs,
-3,022,763 figures and 96,950 metric-tag choices in 40 seconds.
+\paragraph{Facts job.} The job reads the 20,609 company files and splits them into 128 partitions,
+four per core, so that every core stays busy although the files range from a few kilobytes to 30 MB.
+A \code{flatMap} turns each file into rows for the four database tables. The result is kept in memory
+(\code{cache}) because it is used once for each table, and each table is written as a Parquet file.
+The job produces 9,695 companies, 140,436 10-Qs, 3,022,763 figures and 96,950 tag choices in 40
+seconds. Two aggregations (\code{groupBy}) then report how many companies report each metric, and how
+often a later filing reports a different value for the same quarter (62,483 cases). These
+\emph{restatements} are why every figure keeps its filing.
 
-\paragraph{Aggregations.} The job then reads the figures back as a DataFrame and builds two reports
-with \code{groupBy} and \code{agg}, which shuffle the rows by key across the partitions.
-\Cref{tab:coverage} is the first: for each metric, how many companies report it for a quarter, how
-many quarterly figures exist and which share of them is derived (a quarter computed as the
-difference of two year-to-date values). It shows, for example, that net income is reported by almost
-every filer, while gross profit or SG\&A is reported by fewer than half, and that 65\% of the
-quarterly operating cash flows had to be derived, because a 10-Q reports cash flows only year to
-date. The second report groups by company, metric and quarter and keeps the groups with more than one
-value: 62,483 such restatements, where a later filing reports a different number for the same
-quarter. This is why the workflow always uses the value of the filing that the question is about
-(\cref{sec:db}).
-
-\begin{table}[ht]
-\centering\small
-\begin{tabular}{lrrr}
-\toprule
-Metric & Companies & Quarterly figures & Derived \\
-\midrule
-Net income & 9,661 & 377,204 & 0.5\% \\
-Operating cash flow & 9,406 & 268,209 & 65.3\% \\
-Operating income & 7,836 & 215,507 & 0.1\% \\
-EPS (diluted) & 7,430 & 194,447 & 0.2\% \\
-Pre-tax income & 7,104 & 198,943 & 0.1\% \\
-Net sales / revenue & 6,895 & 194,350 & 0.7\% \\
-Cost of sales & 4,713 & 127,225 & 0.5\% \\
-Gross profit & 3,706 & 101,107 & 0.4\% \\
-R\&D expense & 3,189 & 91,139 & 0.8\% \\
-SG\&A & 3,004 & 88,110 & 0.1\% \\
-\bottomrule
-\end{tabular}
-\caption{Coverage report of the facts job: quarterly figures per metric over all filers since 2019.}
-\label{tab:coverage}
-\end{table}
-
-\paragraph{Text job.} The text job reads each finished download batch with Spark's \code{binaryFile}
-source (one row per compressed 10-Q), splits every filing into passages with \code{flatMap}, and then
-calls \code{repartition}: filings differ a lot in length, and without it a few tasks would get most of
-the passages of the expensive next step. \code{mapPartitions} embeds the passages of a partition in
-groups of 256, so the embedding model is loaded once per task rather than once per passage, and the
-result is written as one Parquet folder per batch. The list of evaluation companies, whose filings
-are kept completely, is a broadcast variable. E5 (\cref{sec:e5}) measures how both jobs scale with
-the number of cores.
+\paragraph{Text job.} The text job reads the downloaded 10-Qs, splits every document into passages
+and redistributes them evenly over the partitions, because documents differ greatly in length. Each
+partition then embeds its passages in groups of 256, so the embedding model is loaded once per task
+instead of once per passage.
 
 \subsection{Updating with new filings}
 \label{sec:update}
 
-Companies file new 10-Qs every day, so the database must be updated without rebuilding it. The
-pipeline already skips finished work; for updates we added three small changes:
-\begin{itemize}
-  \item the facts load adds every 10-Q filed after the newest filing in the database, also for
-        companies that are already loaded (before, a known company was skipped completely);
-  \item the manifest takes a \code{--since} date, so only the new filings are downloaded;
-  \item the text load takes the folder of the update's downloads.
-\end{itemize}
-\code{cloud/update.sh} runs the seven steps of the pipeline on new data only and records the time of
-each step. The facts job still processes all companies, because \code{companyfacts.zip} has no
-``changed since'' option and the job takes under a minute anyway; the expensive steps, download and
-embedding, only touch the new filings. E6 (\cref{sec:e6}) reports one such update run and estimates
-the resources needed on the busiest filing days.
+Companies file new 10-Qs every day. An update script runs the same pipeline on new data only: it adds
+the figures of every filing newer than the newest one in the database and downloads and embeds only
+the new documents. The facts job still reads all companies, because the SEC offers no file of recent
+changes, but it takes under a minute.
 
 \subsection{Deployment on AWS}
 
-\Cref{fig:cloud} shows the deployment. This section lists the steps to set it up from scratch. The
-exact commands, with the expected output of each step, are in \code{REPRODUCE.md} and
-\code{docs/CLOUD.md} in the repository. Commands marked \emph{laptop} run on our own computer, all
-others on the instance.
-
-\begin{figure}[ht]
-\centering
-\begin{tikzpicture}[
-  c/.style={draw,rounded corners=2pt,align=center,font=\small,minimum height=10mm,text width=22mm,fill=white},
-  arr/.style={-{Stealth[length=2mm]},thick}]
-  \node[c] (spark) at (0,0)    {Spark jobs\\(facts, text)};
-  \node[c] (pg)    at (3,0)    {Postgres 16\\+ pgvector};
-  \node[c] (api)   at (6,0)    {FastAPI\\\code{/ask}};
-  \node[c] (ui)    at (9,0)    {Streamlit\\web page};
-  \node[c] (oll)   at (6,-1.7) {Ollama\\(Qwen2.5-3B)};
-  \begin{scope}[on background layer]
-    \node[draw,dashed,rounded corners,fit=(spark)(pg)(api)(ui)(oll),inner sep=3mm,
-          label={[font=\small,anchor=north east]south east:EC2 c7i.8xlarge, Docker Compose}] (ec2) {};
-  \end{scope}
-  \node[c,text width=30mm] (sec)  at (0,2.4)  {SEC EDGAR\\bulk files, 10-Qs};
-  \node[c] (s3)   at (0,-3.6) {S3\\raw data, Parquet};
-  \node[c] (llm)  at (6,2.4)  {Claude API\\(optional)};
-  \node[c] (user) at (12.2,0) {User / laptop\\(SSH tunnel)};
-  \draw[arr] (sec)--(spark); \draw[arr] (spark)--(pg); \draw[arr] (api)--(pg);
-  \draw[arr] (ui)--(api); \draw[arr] (api)--(oll); \draw[arr] (user)--(ui);
-  \draw[arr] (api)--(llm); \draw[arr] (spark)--(s3);
-\end{tikzpicture}
-\caption{Deployment on one EC2 instance. The LLM is either the Claude API or Qwen served by Ollama
-on the same instance.}
-\label{fig:cloud}
-\end{figure}
-
-\subsubsection{Account preparation}
-
-\begin{enumerate}
-  \item \textbf{Plan and quota.} An AWS account on the free plan can only start small instance
-        types, so the account is moved to the paid plan (credits stay). The vCPU quota for
-        on-demand standard instances must be at least 32 for a c7i.8xlarge; new accounts often
-        have less, and an increase is requested under Service Quotas.
-  \item \textbf{Budget alert.} A monthly cost budget of \$80 with an email alert, under Billing
-        $\to$ Budgets.
-  \item \textbf{S3 bucket and role.} An S3 bucket in us-east-1 for the long-term copy of the data,
-        and an IAM role \code{finqa-ec2} for EC2 with S3 access, so the instance can write to the
-        bucket without storing any keys.
-\end{enumerate}
-
-\subsubsection{Launching the instance}
-
-The instance is launched from the EC2 console with the settings in \cref{tab:instance}.
+\Cref{tab:instance} shows the machine we used. Embedding millions of passages is CPU-bound and
+parallel, so we chose a compute-optimised instance with many cores; E5 (\cref{sec:e5}) confirms that
+the Spark jobs use up to its 16 physical cores. 64 GB of memory hold Spark and Postgres side by side,
+and the 250 GB disk leaves ample room for the data in \cref{tab:storage}. After the full load the
+same disk can be attached to a much smaller instance for serving, since answering a question needs
+little computation.
 
 \begin{table}[ht]
 \centering\small
@@ -357,17 +152,38 @@ The instance is launched from the EC2 console with the settings in \cref{tab:ins
 \toprule
 Setting & Value \\
 \midrule
-Image & Ubuntu (64-bit x86); Amazon Linux 2023 also works with our setup script \\
-Instance type & c7i.8xlarge: 32 vCPUs, 64 GB memory, about \$1.43 per hour \\
-Storage & 250 GB gp3 \\
-Key pair & New RSA key pair \code{finqa}, saved as \code{\textasciitilde/.ssh/finqa.pem} with mode 400 \\
-Security group & SSH (port 22) and Streamlit (port 8501) from our own IP address only \\
-IAM instance profile & \code{finqa-ec2} (S3 access) \\
+Instance type & c7i.8xlarge (compute-optimised): 32 vCPUs on 16 physical cores, 64 GB memory \\
+Storage & 250 GB general-purpose SSD (gp3) \\
+Operating system & Ubuntu, Docker Compose \\
 Region & us-east-1 \\
+Network access & SSH and the web page port from our own IP address only; database not exposed \\
+Permissions & IAM role with access to our S3 bucket, so no keys are stored on the machine \\
 \bottomrule
 \end{tabularx}
-\caption{EC2 instance settings.}
+\caption{EC2 instance.}
 \label{tab:instance}
+\end{table}
+
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{Xrl}
+\toprule
+Data & Size & \\
+\midrule
+SEC bulk files (\code{companyfacts.zip}, \code{submissions.zip}) & 2.9 GB & measured \\
+140,226 downloaded 10-Q documents (compressed) & about 20 GB & estimated \\
+Passage embeddings (4.55 million $\times$ 384 numbers) & 7.0 GB & computed \\
+Passage text & about 5 GB & estimated \\
+Figures, companies, filings and tags & under 1 GB & estimated \\
+FinanceBench PDFs & 160 MB & measured \\
+Docker image & 2.5 GB & measured \\
+\midrule
+Total & about 40 GB & \\
+\bottomrule
+\end{tabularx}
+\caption{Data stored on the instance. The size of the downloads is estimated from the average
+compressed size of our pilot filings; the embedding size follows from the number of passages.}
+\label{tab:storage}
 \end{table}
 
 \screenshot{EC2 console: the instance list with the running c7i.8xlarge (instance type, state,
@@ -376,115 +192,9 @@ public IP).}{The EC2 instance in the AWS console.}{fig:ec2-console}
 \screenshot{EC2 console: the security group's inbound rules (SSH and port 8501 from our own IP).}{The
 security group of the instance.}{fig:security-group}
 
-\subsubsection{Code and Docker}
+\screenshot{Terminal on the instance: the end of the pipeline log (batches downloaded and embedded)
+and \code{docker compose ps} with the running containers.}{The pipeline log and the running containers
+on the instance.}{fig:pipeline-log}
 
-The repository is private, so the code is copied from the laptop to the instance with
-\code{rsync} over SSH, leaving out the virtual environment, local data and the \code{.env} file:
-
-\begin{lstlisting}
-# laptop
-rsync -av --exclude .venv --exclude .git --exclude data/bulk --exclude .env \
-  -e "ssh -i ~/.ssh/finqa.pem" financial-agent-project ubuntu@<public-ip>:~/
-ssh -i ~/.ssh/finqa.pem ubuntu@<public-ip>
-# instance
-cd financial-agent-project && bash cloud/ec2_setup.sh   # Docker, Compose, AWS CLI
-cp .env.example .env    # then add SEC_USER_AGENT and the API keys
-docker compose build
-\end{lstlisting}
-
-\subsubsection{Building the database}
-
-\begin{lstlisting}
-bash cloud/fetch_bulk.sh                                       # a few minutes
-nohup bash cloud/run_pipeline.sh > data/bulk/pipeline.log 2>&1 &   # about 13 hours
-tail -f data/bulk/pipeline.log                                 # watch progress
-bash cloud/backup_to_s3.sh <bucket>                            # copy to S3 when done
-\end{lstlisting}
-
-The pipeline runs in the background and survives logging out. \code{CORES} limits the Spark cores
-and \code{FIRST\_YEAR} the first year of filings, for a smaller test run.
-
-\screenshot{Terminal on the instance: the end of \code{pipeline.log} (batches downloaded and
-embedded) and \code{docker compose ps} with the running containers.}{The pipeline log and the
-running containers on the instance.}{fig:pipeline-log}
-
-\subsubsection{FinanceBench filings and the SSH tunnel}
-
-The FinanceBench PDFs are parsed and embedded on the laptop and written into the cloud database
-through an SSH tunnel, which forwards a local port to Postgres on the instance. The same tunnel is
-used to run the experiments from the laptop, so the local Qwen models can use the cloud database:
-
-\begin{lstlisting}
-# laptop
-ssh -i ~/.ssh/finqa.pem -f -N -L 5433:localhost:5432 ubuntu@<public-ip>
-python -m finqa.pdf_docs --download
-DATABASE_URL=postgresql://finqa:finqa@localhost:5433/finqa python -m finqa.pdf_docs
-\end{lstlisting}
-
-\subsubsection{Local LLM on the instance (optional)}
-
-For a setup without any LLM API, Ollama serves Qwen on the instance's CPU. The API container reaches
-it at \code{http://ollama:11434/v1} and uses it with the preset \code{ollama-3b}:
-
-\begin{lstlisting}
-docker compose --profile ollama up -d ollama
-docker compose exec ollama ollama pull qwen2.5:3b-instruct
-\end{lstlisting}
-
-\subsubsection{Serving the app and saving cost}
-
-\code{docker compose up -d} starts the database, the API and the web page, which is then available
-at \code{http://<public-ip>:8501}. After the pipeline the large instance is no longer needed: it can
-be stopped and changed to a small type such as t3.large (about \$0.08 per hour) for the demo, since
-the disk with the database is kept. The public IP address changes after every stop. At the end of
-the project the instance is terminated and the S3 bucket deleted.
-
-\subsection{Running the experiments}
-
-All experiments are run by scripts in \code{eval/}, and every result is saved, so tables can be
-regenerated without calling an LLM again:
-
-\begin{lstlisting}
-python eval/build_answer_key.py              # verify the answer key against the filings
-python eval/run_experiments.py run --set v2 --split test --system A --llm claude \
-       --model claude-haiku-5-5                # E1, one system and model at a time
-python eval/run_experiments.py grade --set v2  # code and LLM grading
-python eval/retrieval_eval.py                  # E2
-python eval/load_test.py --users 1 10 50       # E4, on the instance
-bash cloud/scaling_experiment.sh               # E5, on the instance
-python eval/summarize.py                       # all tables -> eval/RESULTS_v2.md
-\end{lstlisting}
-
-The runner writes one result file per system, model and question set, and skips questions that are
-already answered, so an interrupted run continues where it stopped.
-
-\subsection{Testing}
-
-37 tests cover the rules that decide correctness: period labels and derived cash-flow quarters,
-tag choice, the scope rules and the router, company lookup, splitting HTML and PDFs into passages,
-BM25 and rank fusion, the formula evaluator, the writer check, the closed-book baseline, the
-download and the loaders (loading twice must not create duplicates), and the web page. Database tests run against a real Postgres with
-pgvector. GitHub Actions runs all tests and builds the Docker image on every push.
-
-\subsection{Cost}
-
-The whole project so far cost about \$20 of a \$100 AWS budget (\cref{tab:cost}). The instance is
-the main cost; the API calls of all experiments together cost about one dollar, because the workflow
-sends short inputs.
-
-\begin{table}[ht]
-\centering\small
-\begin{tabular}{lr}
-\toprule
-Item & Cost \\
-\midrule
-EC2 c7i.8xlarge, about 13 hours running & about \$19 \\
-EBS disk 250 GB, while it exists & about \$0.65 per day \\
-Anthropic API: all Haiku answers & about \$0.40 \\
-LLM grading (Haiku) and grader check (Sonnet, 60 answers) & about \$0.50 \\
-Qwen on the MacBook or on the EC2 CPU & \$0 \\
-\bottomrule
-\end{tabular}
-\caption{Cost of the project so far.}
-\label{tab:cost}
-\end{table}
+The FinanceBench PDFs were processed on a laptop and written into the cloud database through the SSH
+tunnel, which the local Qwen models also used to reach the database during the experiments.

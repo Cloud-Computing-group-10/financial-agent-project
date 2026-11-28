@@ -1,15 +1,11 @@
 \section{Methodology: design}
 
-This chapter describes what the system does and why it is built this way: the data it uses, the
-main design choices, the answer workflow, the database, the search, the API and the cloud
-architecture. \Cref{sec:implementation} then describes how it is implemented and deployed.
-
 \subsection{Scope and data sources}
 
-The system answers questions about the quarterly results of US public companies, for example
-``What were 3M's net sales in Q2 2023?'', ``How did Tesla's operating income change year over
-year?'' or ``Why did Honeywell's sales increase?''. It uses three public datasets from the SEC and
-one benchmark (\cref{tab:data}).
+The system answers questions about the quarterly results of US public companies, for example ``What
+were 3M's net sales in Q2 2023?'', ``How did Tesla's operating income change year over year?'' or
+``Why did Honeywell's sales increase?''. It uses three public datasets from the SEC and one benchmark
+(\cref{tab:data}).
 
 \begin{table}[ht]
 \centering\small
@@ -27,37 +23,21 @@ FinanceBench~\cite{financebench} & 150 questions with analyst answers, 84 PDF fi
 \label{tab:data}
 \end{table}
 
-\paragraph{XBRL facts.} XBRL (eXtensible Business Reporting Language) is the machine-readable
-version of the financial statements that companies file together with each report. The SEC
-publishes all facts of all companies in one file, \code{companyfacts.zip}, with one JSON file per
-company. Each fact has a tag, a value, a unit, the start and end date of its period and the filing
-it comes from. For example, this is 3M's revenue for the second quarter of 2023, as reported in its
-10-Q of July 2023 (shortened):
+\paragraph{Figures.} Together with each report, companies file their financial statements in XBRL, a
+machine-readable format in which every number carries a tag (such as \code{Revenues}), a value, a
+unit, the start and end date of its period and the filing it belongs to. The SEC publishes the XBRL
+data of all companies in one file, \code{companyfacts.zip}. This gives exact numbers without reading
+tables from web pages. The same quarter can appear again in a later filing with a different value,
+for example after part of a company was sold, so every figure keeps the filing it came from.
 
-\begin{lstlisting}
-"Revenues": { "units": { "USD": [
-  { "start": "2023-04-01", "end": "2023-06-30", "val": 8325000000,
-    "accn": "0000066740-23-000058", "form": "10-Q", "fp": "Q2", "filed": "2023-07-25" },
-  ... ] } }
-\end{lstlisting}
+\paragraph{Text.} Reasons (``why did sales fall?'') are not in the XBRL data. Every 10-Q contains a
+section called \emph{Management's Discussion and Analysis} (MD\&A), in which the company explains its
+results in words. We download the main document of every 10-Q and split it into short passages.
 
-This gives exact numbers without parsing tables from HTML. The same quarter can appear again in later
-filings with a different value: 3M's 10-Q of July 2024 reports Q2 2023 revenue as \$6,283 million,
-because the health-care business (Solventum) was spun off in between. This is why the period of a
-fact is taken from its own dates and why each fact keeps the filing it came from.
+\subsection{Main design choices}
 
-\paragraph{10-Q text.} Reasons (``why did sales fall?'') are not in XBRL. They are in the text of
-the \emph{Management's Discussion and Analysis} (MD\&A) section, Part~I Item~2 of every 10-Q, where
-the company explains its results. We download the main HTML document of each 10-Q from EDGAR and
-split it into sections and passages.
-
-\paragraph{FinanceBench.} The public part of FinanceBench has 150 questions with analyst answers
-about 84 filings (PDF, mostly 10-Ks). We use it only for evaluation.
-
-\subsection{Design choices}
-
-\Cref{tab:choices} summarises the main design decisions, the options we considered and why we chose
-as we did. The following sections explain them in more detail.
+\Cref{tab:choices} lists the main decisions, the options we considered and the reasons for our
+choice. They are explained in the rest of this chapter.
 
 {\small
 \begin{xltabular}{\linewidth}{>{\raggedright\arraybackslash}p{27mm}>{\raggedright\arraybackslash}p{30mm}>{\raggedright\arraybackslash}p{30mm}X}
@@ -72,20 +52,16 @@ Decision & Options & Choice & Why \\
 \endhead
 Role of the LLM & Answer freely; answer from retrieved text; only parse and phrase &
   Only parse and phrase & Code finds and computes every number, so the LLM cannot invent one \\
-Source of numbers & Tables in the HTML; XBRL facts & XBRL facts &
-  Exact values with tags and dates, for every filer in one bulk file \\
-Prior-year value & Older filing; prior-year column of the same filing & Same filing &
-  Uses restated values, as the company itself compares them \\
+Source of numbers & Tables in the documents; XBRL data & XBRL data &
+  Exact values with tags and dates, for every filer in one file \\
 Text to index & All sections; MD\&A only & MD\&A for all filers, all sections for the evaluation companies &
-  All sections would take about 33 hours to embed; reasons are in MD\&A \\
-Search method & BM25; semantic; hybrid & Hybrid (RRF) & Best on the development questions (E2) \\
-Embedding model & API embeddings; small local model & MiniLM-L6 on CPU &
-  No cost per passage, fast enough for 4.5 million passages \\
+  Reasons are in the MD\&A; all sections would take about 33 hours to embed \\
+Search method & BM25; semantic; hybrid & Hybrid & Best on the development questions (E2) \\
 Storage & Separate vector database; Postgres + pgvector & Postgres + pgvector &
   Figures, filings and passages in one place; filter by filing in SQL, then rank \\
-Batch processing & EMR cluster; Spark on one large EC2 instance & One instance, Spark local mode &
-  SEC download limit is the same for any number of machines; no cluster start-up cost \\
-Serving & Kubernetes; Docker Compose & Docker Compose & One machine, same file on the laptop and on EC2 \\
+Batch processing & Spark cluster (EMR); Spark on one large instance & One large instance &
+  The SEC download limit is the same for any number of machines; no cluster start-up \\
+Serving & Kubernetes; Docker Compose & Docker Compose & One machine; same setup on laptop and cloud \\
 When unsure & Best guess; decline & Decline with the reason & A wrong number is worse than no answer \\
 LLM & One hosted model; any model & Any model behind one interface &
   Compare a hosted model with small local ones \\
@@ -95,7 +71,7 @@ LLM & One hosted model; any model & Any model behind one interface &
 \subsection{Answer workflow}
 \label{sec:workflow}
 
-\Cref{fig:workflow} shows the five steps of a question. Only two of them call an LLM (shaded).
+A question passes through five steps (\cref{fig:workflow}). Only the shaded steps use the LLM.
 
 \begin{figure}[ht]
 \centering
@@ -108,8 +84,8 @@ LLM & One hosted model; any model & Any model behind one interface &
   \node[box] (check) at (3.6,0)  {2. Check\\\footnotesize company, metric, scope};
   \node[box] (find)  at (7.2,0)  {3. Find\\\footnotesize company and filing (SQL)};
   \node[box] (route) at (10.8,0) {4. Route\\\footnotesize by question type};
-  \node[path] (num) at (0.9,-2.6)  {\textbf{Numbers}\\SQL templates over XBRL; change computed in SQL};
-  \node[path] (why) at (5.4,-2.6)  {\textbf{Why}\\hybrid search in MD\&A; LLM writes claims that cite passages};
+  \node[path] (num) at (0.9,-2.6)  {\textbf{Numbers}\\SQL over the XBRL figures; change computed in SQL};
+  \node[path] (why) at (5.4,-2.6)  {\textbf{Why}\\search in the MD\&A; LLM writes claims that cite passages};
   \node[path] (doc) at (9.9,-2.6)  {\textbf{Document QA}\\search one filing; code checks inputs and evaluates the formula};
   \node[llm,text width=105mm] (write) at (5.4,-5.0) {5. Write\\\footnotesize LLM phrases the verified facts; code checks numbers and references};
   \draw[arr] (parse)--(check); \draw[arr] (check)--(find); \draw[arr] (find)--(route);
@@ -122,125 +98,76 @@ LLM & One hosted model; any model & Any model behind one interface &
   \draw[arr] (why.south) -- (write.north);
   \draw[arr] (doc.south) -- (doc.south |- write.north);
 \end{tikzpicture}
-\caption{The answer workflow. Shaded steps call the LLM; all other steps are code. The ``why''
-path also calls the LLM to write its claims.}
+\caption{The answer workflow. Shaded steps call the LLM; the ``why'' path also uses it to write
+claims. All other steps are code.}
 \label{fig:workflow}
 \end{figure}
 
-\paragraph{Step 1: parse.} The LLM turns the question into a small JSON object that must match a
-fixed schema. For ``How did 3M's net sales change in Q2 2023?'' the parse is:
+\paragraph{1. Parse.} The LLM translates the question into a small structured record (JSON) with a
+fixed set of fields. For ``How did 3M's net sales change in Q2 2023?'' it produces:
 
+\noindent\begin{minipage}{\linewidth}
 \begin{lstlisting}
 { "company": "3M", "metric": "net_sales", "period": "Q2 2023", "qtype": "numeric",
   "compare": "yoy", "unsupported_reason": null, "search_terms": "net sales" }
 \end{lstlisting}
+\end{minipage}
 
-The \code{company} field is the company \emph{as written in the question}; the LLM does not decide
-which company it is. \code{qtype} is numeric, explanatory (``why'') or both, \code{compare} is year
-over year, quarter over quarter or none, and \code{search\_terms} is a short query in the words a
-filing would use, for document QA.
+\paragraph{2. Check.} Code then checks this record with fixed rules. The company must be named in
+the question; otherwise the system asks which one is meant instead of guessing. The metric must be
+one of the ten the system stores (\cref{tab:metrics}). Questions that the quarterly figures cannot
+answer, such as full-year numbers or ratios, are sent to the document path. These rules catch the
+most frequent mistakes of small LLMs.
 
-\paragraph{Step 2: check.} Code then checks the parse. These checks are rules, not a second guess:
+\paragraph{3. Find.} SQL looks up the company by its ticker, its name or a known short name (``Coke''
+for Coca-Cola). If several companies match, the system asks the user to choose. It then finds the
+filing that covers the requested quarter.
+
+\paragraph{4. Route.} The question goes to one of three paths:
 \begin{itemize}
-  \item the company text must appear in the question (``ask, don't guess''); if no company is
-        named, the system asks which one is meant;
-  \item the metric must be one of the ten in \cref{tab:metrics};
-  \item scope rules always apply: Q4 and full-year numbers are only in the 10-K, and ratios,
-        margins and segment numbers are not stored as figures, so these go to document QA;
-  \item a question without a ``why'' word (why, reason, driver, due to, \ldots) is never sent to
-        the explanation path, even if the LLM said so.
-\end{itemize}
-These checks catch the most common mistakes of small models.
-
-\paragraph{Step 3: find.} SQL finds the company in this order: a known alias (``Coke'' $\to$ KO),
-the ticker, the normalised name, and a name that starts with the mention (``Honeywell'' $\to$
-Honeywell International). If several companies match, a listed company with at least four times as
-many 10-Qs as the others is taken, which handles old shells and new listings with the same name.
-Otherwise the system asks the user to choose. It then finds the filing that covers the period, or
-the latest filing for ``the most recent quarter''.
-
-\paragraph{Step 4: route.} The question goes to one of three paths.
-\begin{itemize}
-  \item \textbf{Numbers.} One of the ten metrics for a quarter, or its change. A fixed SQL template
-        reads the figure. For a year-over-year change it reads the prior-year column of the
-        \emph{same} 10-Q, so restated values are used (for example Johnson \& Johnson after the
-        Kenvue spin-off, or 3M after Solventum). The change in percent and in dollars is computed in
-        SQL. Each figure cites the filing, statement, line label, XBRL tag and period.
-  \item \textbf{Why.} Hybrid search over the MD\&A passages of that one filing
-        (\cref{sec:retrieval}). If the best match is too weak, the system searches the whole filing
-        once more, and declines if that also fails. Otherwise the LLM writes short claims, each of
-        which must cite a retrieved passage by its id; claims that cite an unknown passage are
-        dropped.
-  \item \textbf{Document QA.} Everything else: ratios, full years, other line items and text
-        questions, as in FinanceBench. The system searches the filing of that period (top 10
-        passages). For a calculation the LLM does not give the result. It names each input exactly
-        as printed, with the passage it comes from, and a formula over the input names, such as
-        \code{(current\_assets) / (current\_liabilities)}. Code checks that each input really is
-        printed in that passage and then evaluates the formula with a small evaluator that allows
-        only numbers, input names and the operators $+$, $-$, $\times$, $/$ and powers.
+  \item \textbf{Numbers.} A fixed SQL query reads the figure. For a change compared with the previous
+        year, the earlier value is taken from the same filing, which shows the previous year next to
+        the current one, so both numbers are on the same basis. The change is computed in SQL. Each
+        figure cites its filing, statement, line, tag and period.
+  \item \textbf{Why.} The system searches the MD\&A passages of the filing. If no passage is similar
+        enough to the question, it searches the whole filing once more and otherwise declines. The
+        LLM then writes short claims, and each claim must cite one of the retrieved passages; claims
+        that cite anything else are dropped.
+  \item \textbf{Document QA.} All other questions, such as ratios or full-year figures, which is the
+        typical FinanceBench question. The system retrieves the ten best passages of the filing. For
+        a calculation the LLM does not give the result: it names each input as it is printed, the
+        passage it comes from, and a formula. Code checks that every input is really printed in that
+        passage and then evaluates the formula itself.
 \end{itemize}
 
-\paragraph{Version 2: the three statements are always given.} Our analysis of the first FinanceBench
-run (\cref{sec:fb-errors}) showed that most declines of document QA had one cause: the search did not
-return the balance sheet, income statement or cash-flow statement. A statement page is mostly numbers
-and line labels, so it matches the words of a question poorly, although it holds the inputs of almost
-every ratio. Version 2 of the workflow therefore adds the passages of the filing's three primary
-statements to the search results, so the LLM always has them, the way an analyst keeps the statements
-open. Code finds them without an LLM: a page whose first lines carry a statement title (matched with
-all spaces removed, because PDF text often breaks words such as ``Balance Shee t''), that holds at
-least 25 numbers, and that lies within eight pages of the other two statements, which rules out tables
-of contents and summary tables in the MD\&A. On the 84 FinanceBench filings this finds the evidence
-page of all 50 calculation questions. The change is general (it does not depend on a question) and it
-adds about 4,000 input tokens per question. We call the first version A and the second A2.
+\paragraph{Financial statements as context.} Ratio questions almost always need lines from the three
+main financial statements: the balance sheet, the income statement and the cash-flow statement. These
+pages consist mostly of numbers, so search often misses them. The variant A2 of the workflow
+therefore always adds these three statements to the retrieved passages. Code finds them without an
+LLM, by their titles and by the many numbers on the page.
 
-\paragraph{Step 5: write.} A second LLM call turns the verified facts into a short answer. It gets
-only the question and the facts, each with a reference such as
-\code{[F1] 3M, net sales, Q2 2023: \$8.325 billion}, and never the filing text. Code rejects the
-answer if it contains a number that is not in the facts or the question, or a reference that does
-not exist. In that case the system uses a fixed template answer instead. An example answer:
+\paragraph{5. Write.} A second LLM call turns the verified facts into a short answer. It sees only the
+question and the facts, each with a reference such as \code{[F1]}, never the filing. Code rejects any
+answer that contains a number not among the facts or a reference that does not exist, and then
+uses a fixed template answer instead:
 
+\noindent\begin{minipage}{\linewidth}
 \begin{lstlisting}
 3M's net sales fell year over year in the second quarter of 2023. Net sales were
 $8.325 billion in Q2 2023, compared with $8.702 billion in Q2 2022 [F1][F2]. The
 computed change is a decrease of 4.3%, or $377 million.
 \end{lstlisting}
+\end{minipage}
 
-The design rule is that the user never sees a number that code did not find or compute. A number
-question takes two LLM calls (parse, write), a ``why'' question three (parse, claims, write) and a
-document QA question two (parse, answer).
-
-\paragraph{Answer status.} Every answer has one of five statuses, so a client (and the evaluation)
-can tell a real answer from a refusal (\cref{tab:status}).
-
-\begin{table}[ht]
-\centering\small
-\begin{tabularx}{\linewidth}{lX}
-\toprule
-Status & Meaning \\
-\midrule
-\code{answered} & All requested facts were found and checked \\
-\code{partial}  & Some facts were found, for example the figure but not the reasons \\
-\code{clarify}  & The question is ambiguous: no company named, or several companies match \\
-\code{abstain}  & Not enough evidence: no filing for that period, an unsupported metric, or weak search results \\
-\code{error}    & The LLM call failed; this is reported, never replaced by a guess \\
-\bottomrule
-\end{tabularx}
-\caption{Answer statuses.}
-\label{tab:status}
-\end{table}
-
-\subsection{Metrics}
-
-The number path covers ten metrics (\cref{tab:metrics}). Companies use different XBRL tags for the
-same line item, so each metric has an ordered list of candidate tags. For each filing, the first
-candidate that the filing reports is used, and the tag is stored with the figure. Users can name a
-metric in everyday words: ``top line'', ``turnover'' and ``revenue'' all mean net sales.
+The rule behind the design is that the user never sees a number that code did not find or compute.
+Every answer also carries a status: answered, partly answered, needs clarification, declined (not
+enough evidence) or error. A refusal is therefore always explicit and never replaced by a guess.
 
 \begin{table}[ht]
 \centering\small
 \begin{tabularx}{\linewidth}{llX}
 \toprule
-Metric & Statement & Candidate XBRL tags (first ones) \\
+Metric & Statement & Example XBRL tags \\
 \midrule
 Net sales / revenue & Income & \code{Revenues}, \code{RevenueFromContractWithCustomer\ldots} \\
 Cost of sales & Income & \code{CostOfGoodsAndServicesSold}, \code{CostOfRevenue} \\
@@ -254,22 +181,18 @@ Diluted EPS & Income & \code{EarningsPerShareDiluted} \\
 Operating cash flow & Cash flow & \code{NetCashProvidedByUsedInOperatingActivities} \\
 \bottomrule
 \end{tabularx}
-\caption{The ten metrics of the number path.}
+\caption{The ten metrics of the number path. Companies use different tags for the same line, so each
+metric has a list of candidate tags.}
 \label{tab:metrics}
 \end{table}
 
-A tag can also be wrong for a company. While verifying our answer key we found that Honeywell has no
-operating-income line; the tag \code{OperatingIncomeLoss} in its filings is ``total segment profit''
-from a note. Such cases are listed in the configuration, so the metric becomes unsupported for that
-company and the system declines instead of answering with the wrong line.
-
 \subsection{Database design}
 \label{sec:db}
-\label{sec:schema}
 
-All data lives in one Postgres 16 database with the pgvector extension, which adds a
-\code{vector} column type and a cosine-distance operator. \Cref{fig:schema} shows the five tables
-and how they are linked, and \cref{tab:db} gives their size after the full load.
+All data is stored in one Postgres database with the pgvector extension, which adds a column type for
+embeddings and a similarity operator. \Cref{fig:schema} shows the five tables and \cref{tab:db} their
+size. A 10-Q reports cash flow only from the start of the year, so a single quarter is computed as the
+difference of two such values and marked as derived.
 
 \begin{figure}[ht]
 \centering
@@ -311,154 +234,91 @@ and how they are linked, and \cref{tab:db} gives their size after the full load.
 \toprule
 Table & Rows & Contents \\
 \midrule
-\code{companies}   & 9,695     & One row per SEC filer with 10-Qs since 2019: CIK, name, main ticker, normalised name \\
-\code{documents}   & 140,520   & One row per filing (10-Qs and the FinanceBench documents): form, period, filing date, link, whether text is indexed \\
+\code{companies}   & 9,695     & One row per SEC filer with 10-Qs since 2019: CIK, name, main ticker \\
+\code{documents}   & 140,520   & One row per filing: form, period, filing date, link, whether text is indexed \\
 \code{figures}     & 3,022,763 & One row per number: metric, XBRL tag, line label, period, value, unit, derived flag \\
 \code{metric\_tags}& 96,950    & Which XBRL tag each company uses for each metric, or why none fits \\
-\code{chunks}      & 4,550,888 & Passages of about 180 words with section, heading, position and a 384-dimension embedding \\
+\code{chunks}      & 4,550,888 & Passages of about 180 words with section, heading and a 384-dimension embedding \\
 \bottomrule
 \end{tabularx}
 \caption{Database tables after the full load.}
 \label{tab:db}
 \end{table}
 
-\paragraph{Keys and indexes.} \code{companies} uses the SEC's CIK as its key, so loading the same
-company twice is detected. A filing is unique per company and accession number; a few 10-Qs are
-filed jointly by two companies and are stored once for each. Indexes support exactly the queries of
-the workflow: companies by lower-case ticker and by name prefix, filings by company and period,
-figures by metric, period and filing, and passages by filing.
+Keeping passages and figures in one database means that every search starts with a plain SQL filter
+on a single filing. This leaves only a few hundred candidate passages, so the 4.5 million passages
+never slow a question down and no separate vector database is needed.
 
-\paragraph{Rules for the figures.} A quarter is a fact whose period is about three months long,
-labelled with the calendar quarter of its end date. Six- and nine-month facts are kept as
-year-to-date figures (\code{6M 2023}). Cash flow is only reported year to date in a 10-Q, so a
-quarter is computed as the year-to-date value minus the previous year-to-date value and marked
-\code{is\_derived}.
-
-\paragraph{Why one database.} Keeping passages and figures together lets every search start with a
-plain SQL filter on one filing (\code{WHERE report\_id = \ldots}), which leaves only a few hundred
-candidate passages to rank. The 4.5 million passages therefore never slow a question down, and we
-do not need an approximate vector index or a separate vector database.
-
-\subsection{Retrieval design}
+\subsection{Search design}
 \label{sec:retrieval}
 
-\paragraph{Passages.} A 10-Q's HTML is turned into lines of text; tables become one line per row
-with cells separated by ``\code{|}''. A heading detector finds the Part and Item headings
-(``Part I, Item 2. Management's Discussion and Analysis'') and the sub-headings below them. The text
-of each section is then cut into passages of about 180 words (at most 260), ending at a sentence
-boundary. Each passage keeps its section, heading and position, so it can be cited precisely.
-Passages that are almost only numbers are dropped. For the FinanceBench PDFs, each page is split the
-same way and the tables are kept, because many FinanceBench questions need them.
+Each 10-Q document is converted to plain text, its section headings are detected, and each section is
+cut into passages of about 180 words that end at a sentence boundary. Every passage keeps its section
+and heading, so it can be cited precisely. Passages and questions are embedded with the small
+\code{all-MiniLM-L6-v2} model, which runs on an ordinary CPU and costs nothing per passage.
 
-\paragraph{Embeddings.} Every passage and every question is embedded with the
-\code{all-MiniLM-L6-v2} sentence encoder~\cite{minilm,sbert} (384 numbers), run locally with ONNX
-on the CPU. It is small enough to embed millions of passages on one machine and costs nothing per
-passage.
+For a question, the passages of the chosen filing are ranked in one of three ways: by BM25 (shared
+words), by semantic similarity of the embeddings, or by a hybrid that merges both rankings.
+The system declines when even the best passage is not similar enough to the question. This decision is
+based on the similarity score, not on the LLM's opinion; the threshold was set on development
+questions that are not used for testing.
 
-\paragraph{Ranking.} For a question, SQL selects the candidate passages of the chosen filing (and,
-for ``why'' questions, of its MD\&A section) together with their cosine similarity to the question.
-Three rankings are possible: semantic (by similarity), BM25~\cite{bm25} (by word overlap, computed
-over the same candidates), and hybrid, which merges the two ranked lists by reciprocal rank
-fusion~\cite{rrf}. Hybrid is the default (see E2). The decision to decline is always based on the
-cosine similarity of the passages, never on the LLM's own opinion: the best passage must reach 0.45
-and at least two passages 0.40. Both thresholds were set on the development questions.
+\subsection{User interface}
 
-\subsection{API and user interface}
-\label{sec:api}
-
-The system is a small HTTP service built with FastAPI (\cref{tab:api}). A Streamlit web page calls
-it and shows the answer with its sources (\cref{fig:frontend}).
-
-\begin{table}[ht]
-\centering\small
-\begin{tabularx}{\linewidth}{llX}
-\toprule
-Method & Endpoint & Description \\
-\midrule
-\code{GET}  & \code{/health} & Status, the current LLM and whether it is reachable, the list of LLM presets \\
-\code{POST} & \code{/ask}    & Answers one question; returns the answer object below \\
-\code{GET}  & \code{/docs}   & Interactive API documentation, generated by FastAPI \\
-\bottomrule
-\end{tabularx}
-\caption{API endpoints.}
-\label{tab:api}
-\end{table}
-
-A request to \code{/ask} needs only the question. Optional fields choose the search method, the LLM
-preset and model, and whether the writer is used:
-
-\begin{lstlisting}
-POST /ask
-{ "question": "Why did 3M sales drop in Q2 2023?",
-  "method": "hybrid", "llm": "claude", "model": null, "writer": true }
-\end{lstlisting}
-
-The response is one JSON object. Besides the answer text and its status it carries everything
-needed to check the answer:
-
-\begin{lstlisting}
-{ "question": "...", "status": "answered", "answer": "3M's net sales fell ... [F1][F2] ...",
-  "figures":   [ { "ref": "F1", "metric": "net_sales", "value": 8325000000, "unit": "USD",
-                   "period": "Q2 2023", "locator": "10-Q ..., Income Statement, ...",
-                   "url": "https://www.sec.gov/..." } ],
-  "citations": [ { "ref": "C123", "locator": "Part I Item 2, ...", "score": 0.61,
-                   "url": "...", "text": "..." } ],
-  "assumptions": [], "flags": [],
-  "trace": { "parse": {...}, "route": [...], "sql": [...], "search_rounds": [...],
-             "timings": {...} },
-  "usage": { "input_tokens": 2804, "output_tokens": 297, "llm_calls": 2 },
-  "llm": "claude:claude-haiku-5-5", "latency_s": 9.4 }
-\end{lstlisting}
-
-\code{assumptions} lists what the system assumed (for example ``No period given; assumed the
-latest available quarter''),
-\code{flags} lists problems it found (for example a rejected writer answer), and \code{trace} records
-the parse, the route, the SQL and search rounds and the time of each step in seconds.
-
-The web page (\cref{fig:frontend}) is kept plain on purpose: a white page with one dark blue accent,
-so the answer and its sources stand out. It shows a small status label (answered, partly answered,
-declined, needs clarification), the answer in a card, any assumptions and checks as grey notes, a
-table of the figures with a link to the filing on the SEC website, and the passages in expandable
-boxes with their search score (or ``financial statement'' for the statement pages of version 2). One
-line under the answer gives the time, the tokens, the number of LLM calls and the model, and the full
-trace is one click away. A sidebar lets the user choose the LLM, the model and the search method, and
-offers example questions. The page only talks to the API over HTTP, so it can run on the same
-instance or anywhere else.
+The system is an HTTP service built with FastAPI. A request contains the question; the response
+contains the answer, its status, the figures with links to the filing on the SEC website, the cited
+passages, any assumptions (for example ``no period given, the latest quarter was used'') and a trace
+of every step with its time. A Streamlit web page shows this to the user (\cref{fig:frontend}).
 
 \screenshot{The Streamlit page with an answered question: the answer, the figures table and one
 expanded passage.}{The web interface.}{fig:frontend}
 
 \subsection{Cloud architecture}
 
-We run everything on one AWS EC2 instance (c7i.8xlarge: 32 vCPUs, 64 GB memory, 250 GB disk,
-Ubuntu, region us-east-1) with Docker Compose (\cref{fig:cloud}). The containers are Postgres with
-pgvector, the FastAPI service, the Streamlit page, the Spark jobs and, optionally, Ollama to serve
-a local LLM on the CPU. S3 keeps a long-term copy of the raw downloads, the Parquet files and the
-passages.
+Everything runs on one AWS EC2 virtual machine with Docker Compose, which starts the database, the
+API, the web page and, optionally, a local LLM server as separate containers (\cref{fig:cloud}). Amazon
+S3 keeps a long-term copy of the downloaded data. We chose one large machine over a Spark cluster
+because the slowest step, downloading 140,000 documents, is limited by the SEC to 10 requests per
+second no matter how many machines send them, while one machine with many cores can do the
+processing in parallel without the cost of starting a cluster. The Spark jobs would also run
+unchanged on a cluster if the data grew. For security, the database is not reachable from the
+internet; we connect to it through an encrypted SSH tunnel.
 
-We considered an EMR Spark cluster but chose one large machine. The slowest part of the pipeline is
-downloading 140,000 documents, and the SEC allows at most 10 requests per second from one user, no
-matter how many machines send them. The CPU-heavy part (splitting and embedding text) is spread
-over the cores of one machine by Spark just as well as over several machines, without the cost of
-starting a cluster. The Spark jobs are written so that they also run on EMR with \code{s3://} paths,
-if the data grows. The instance is stopped when it is not used, and every step can be resumed.
-
-For security, no database port is open to the internet. The security group allows SSH only from our
-own IP address (and, while the demo runs, the web page port). The laptop reaches the database
-through an SSH tunnel. API keys are kept in a \code{.env} file on each machine and are never
-committed.
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  c/.style={draw,rounded corners=2pt,align=center,font=\small,minimum height=10mm,text width=22mm,fill=white},
+  arr/.style={-{Stealth[length=2mm]},thick}]
+  \node[c] (spark) at (0,0)    {Spark jobs\\(facts, text)};
+  \node[c] (pg)    at (3,0)    {Postgres 16\\+ pgvector};
+  \node[c] (api)   at (6,0)    {FastAPI\\\code{/ask}};
+  \node[c] (ui)    at (9,0)    {Streamlit\\web page};
+  \node[c] (oll)   at (6,-1.7) {Ollama\\(Qwen2.5-3B)};
+  \begin{scope}[on background layer]
+    \node[draw,dashed,rounded corners,fit=(spark)(pg)(api)(ui)(oll),inner sep=3mm,
+          label={[font=\small,anchor=north east]south east:EC2 c7i.8xlarge, Docker Compose}] (ec2) {};
+  \end{scope}
+  \node[c,text width=30mm] (sec)  at (0,2.4)  {SEC EDGAR\\bulk files, 10-Qs};
+  \node[c] (s3)   at (0,-3.6) {S3\\raw data, Parquet};
+  \node[c] (llm)  at (6,2.4)  {Claude API\\(optional)};
+  \node[c] (user) at (12.2,0) {User / laptop\\(SSH tunnel)};
+  \draw[arr] (sec)--(spark); \draw[arr] (spark)--(pg); \draw[arr] (api)--(pg);
+  \draw[arr] (ui)--(api); \draw[arr] (api)--(oll); \draw[arr] (user)--(ui);
+  \draw[arr] (api)--(llm); \draw[arr] (spark)--(s3);
+\end{tikzpicture}
+\caption{Deployment on one EC2 instance. The LLM is either the Claude API or Qwen served by Ollama on
+the same instance.}
+\label{fig:cloud}
+\end{figure}
 
 \subsection{Baselines}
 
-To show what the workflow adds, we compare it with two simpler systems that use the same LLM.
+To show what the workflow adds, we compare it with two simpler systems that use the same LLM:
 \begin{itemize}
-  \item \textbf{C: simple RAG.} The same passage index and hybrid search over the correct filing,
-        top 10 passages, one LLM call that must cite passages. No parsing, routing, SQL, code
-        arithmetic or checks.
-  \item \textbf{N: closed book.} The LLM gets only the question and must answer from its own
-        knowledge, with the same instruction to cite sources or say it does not know. This shows
-        whether retrieval is needed at all.
+  \item \textbf{C, simple RAG:} the ten best passages of the correct filing and the question in one
+        prompt, with the instruction to cite passages. There is no parsing, SQL or checking.
+  \item \textbf{N, closed book:} the LLM gets only the question and answers from its own knowledge.
+        This shows whether retrieval is needed at all.
 \end{itemize}
-We also run \textbf{A0}, our workflow with the template answer instead of the writer, to measure
-what the writer LLM adds. A fourth baseline, giving the LLM the whole filing, was built but not run:
-it mostly measures how much context a model can take and was the most expensive cell.
+We also run \textbf{A0}, the workflow with the template answer instead of the LLM writer, to measure
+what the writer adds.

@@ -1,38 +1,25 @@
 \section{Conclusion}
 
-We built a question-answering agent over SEC filings in which the LLM only reads the question and
-phrases the answer, while SQL, search and code find every number, compute every change and check
-every citation. On AWS, a Spark pipeline on one EC2 instance loaded the figures and 10-Q text of
-every SEC filer since 2019: 9,695 companies, 140,436 10-Qs, 3.0 million figures and 4.55 million
-passages, for about \$20. An update run adds each day's new filings in minutes.
+We built a question-answering system for SEC filings in which the LLM only interprets the question
+and phrases the answer, while SQL, search and code find every number, compute every change and check
+every citation. A Spark pipeline on one AWS machine loaded the figures and 10-Q text of every SEC filer
+since 2019 into one database: 9,695 companies, 140,436 10-Qs, 3.0 million figures and 4.55 million
+passages. New filings are added in minutes.
 
-The experiments show four things. First, the workflow is much more accurate than simple RAG on
-quarterly numbers (96\% against 69\% with Claude Haiku 5.5, identical over three runs), and the gap
-is largest for small local models (84\% against 38\% with Qwen2.5-7B on a laptop). Second, on the
-external FinanceBench benchmark the workflow is ahead of simple RAG in every question type with Haiku
-(69\% against 54\%), and version 2, which always gives the model the three financial statements,
-raises this to 75\% by turning declines into correct answers, with about as many wrong answers as
-before. Its
-structured answer format is still too demanding for small models. Third, a closed-book baseline shows
-that retrieval is needed: without it Haiku answers 31\% of our questions and 21\% of FinanceBench, with
-no source a reader can check. The much larger Opus 5.5, however, answers 63\% of FinanceBench and
-62\% of our questions without any filing: it remembers the figures of large companies, so scores on
-filings from before a model's cut-off must be compared with a closed-book baseline, and the value of
-retrieval lies in newer filings, smaller companies and checkable citations. Fourth, our own layer is fast (about 10 ms per question, more than 200 questions
-per second in one process), the Spark jobs scale to the physical cores of the machine, and even the
-busiest filing day of the year can, by our estimate from the measured rates, be added in under half
-an hour on the smallest instance. The LLM
-and the SEC download limit are the only real bottlenecks.
+On quarterly numbers the workflow is far more accurate than simple RAG (96\% against 69\% with Claude
+Haiku 5.5, identical over three runs), and the gap is largest for small local models (84\% against
+38\% with Qwen2.5-7B). On FinanceBench it is ahead of simple RAG with Haiku (69\% against 54\%), and
+always providing the financial statements raises this to 75\%; small models, however, struggle with
+the structured answers of the document path. Without retrieval Haiku and Qwen mostly fail. A much
+larger model answers many questions from memory, but without sources and without knowledge of new
+filings. On the cloud side, our own code takes about 10 ms per question, the Spark jobs scale to the
+physical cores of the machine, and the LLM and the SEC download limit are the real bottlenecks.
 
-\paragraph{Limitations.} About 27\% of 10-Qs have no MD\&A heading that our section detector
-recognises, so they have no text. Quarters are calendar quarters, so for companies with a different
-fiscal year ``Q2'' means April to June. Passages from 10-Q HTML leave out tables, so ratio questions
-on bulk 10-Qs usually decline. Document QA checks that the inputs of a calculation are printed in the
-filing, but not that they are the right lines, and analysts' metrics such as the quick ratio have
-several definitions. Version 2 was motivated by FinanceBench failures, so its FinanceBench score is
-somewhat optimistic. Free-text grades come from an LLM judge that agrees with a stronger model on 89\% of
-a sample of 300 ($\kappa = 0.84$); a check by a person is still to do.
-
-\paragraph{Next steps.} Before the final report we plan to (1) check the grader sample by hand,
-(2) run the HTTP load test with up to 1,000 users on three instance sizes, (3) give small models a
-simpler document QA format, and (4) improve the MD\&A detector and keep tables in 10-Q passages.
+\paragraph{Limitations and future work.} About 27\% of 10-Qs have no MD\&A heading that our section
+detector recognises, so they have no text. Quarters are calendar quarters, which differs from the
+fiscal quarters of some companies. Text passages from 10-Q web pages leave out tables, so ratio
+questions on bulk 10-Qs usually decline. The document path checks that the inputs of a calculation are
+printed in the filing, but not that they are the right lines. The free-text grades come from an LLM
+judge that was checked against a stronger model but not by a person. Future work could add a human
+check of the grades, a load test of the deployed service with many users, a simpler answer format for
+small models, and tables in the 10-Q passages.

@@ -2,75 +2,61 @@
 
 \subsection{Background and motivation}
 
-Every US public company files a quarterly report (Form 10-Q) and an annual report (Form 10-K) with
-the Securities and Exchange Commission (SEC). These filings are the main source for questions such
-as ``What were 3M's net sales in Q2 2023?'' or ``Why did Honeywell's sales increase?''. They are
-public and free through SEC EDGAR~\cite{sec-edgar}, but they are long: a 10-Q is often 50 pages and
-a 10-K more than 100. Since 2019 more than 140,000 10-Qs have been filed.
+Every US public company must publish its financial results. Each quarter it files a report called a
+10-Q with the Securities and Exchange Commission (SEC), and each year a longer annual report, the
+10-K. These filings answer questions such as ``What were 3M's net sales in the second quarter of
+2023?'' or ``Why did Honeywell's sales increase?''. They are free to download from the SEC's EDGAR
+website~\cite{sec-edgar}, but they are long: a single 10-Q often has 50 pages, and more than 140,000
+10-Qs have been filed since 2019.
 
-Large language models (LLMs) can answer such questions in fluent text, but they make two kinds of
-mistakes that matter in finance. First, they may state numbers from memory that are wrong or out of
-date, because the model has never seen a filing that came out after its training data. Second, even
-when the right text is in front of them, they often get arithmetic wrong, for example a
-year-over-year change in percent~\cite{financebench,finqa}. A wrong number with a confident tone is
-worse than no answer.
+Large language models (LLMs) such as ChatGPT or Claude can answer such questions in fluent text, but
+they make two kinds of mistakes that matter in finance. They may state a number from memory that is
+wrong or out of date, and they often get arithmetic wrong even when the correct figures are in front
+of them~\cite{financebench,finqa}. A wrong number given with confidence is worse than no answer.
 
-Our goal was a system that answers questions about company filings \emph{and cites the source of
-every number and every reason}, so that a reader can check each claim. The main idea is simple: the
-LLM should only read the question and phrase the answer. Finding the figures, computing changes and
-checking citations is done by ordinary code (SQL, search and Python). The project also has a big
-data and cloud side: to answer questions about any company, the system needs the figures and the
-text of every filer, which means processing several gigabytes of SEC data on cloud machines.
+This project builds a question-answering system for company filings that \emph{cites the source of
+every number and every reason}, so that a reader can check each claim. The central idea is to give
+the LLM as little responsibility as possible: it only interprets the question and phrases the final
+answer, while ordinary code finds the figures, computes changes and checks the citations. To answer
+questions about any company, the system needs the data of every filer, so the project also has a
+cloud and big data side: tens of gigabytes of SEC data are processed with Spark on AWS.
 
 \subsection{Literature review}
 
-\paragraph{Question answering over financial documents.}
-Financial QA has its own benchmarks because it mixes text, tables and arithmetic. FinQA~\cite{finqa}
-and TAT-QA~\cite{tatqa} pair questions with a table and some text from an annual report and ask for
-a numerical answer. Both papers found that models are much better at finding the right numbers than
-at computing with them, and both proposed producing a small program (a formula) instead of the final
-number. FinanceBench~\cite{financebench} is closer to real use: 150 public questions written by
-analysts about real 10-K and 10-Q filings, with the evidence page for each answer. Its authors
-tested GPT-4 and other models with several setups and found that a plain retrieval pipeline answered
-or refused incorrectly on most questions, and that even giving the model the full filing did not
-solve the task. We use FinanceBench as our external test set.
+\paragraph{Financial question answering.} Questions about financial reports mix text, tables and
+arithmetic. The FinQA~\cite{finqa} and TAT-QA~\cite{tatqa} benchmarks pair questions with a table and
+some text from an annual report; both found that models are much better at finding the right numbers
+than at computing with them. FinanceBench~\cite{financebench} is closer to real use: 150 questions
+written by financial analysts about real 10-K and 10-Q filings. Its authors found that a standard
+LLM pipeline answered most of them incorrectly or not at all. We use it as an external test set.
 
-\paragraph{Retrieval-augmented generation (RAG).}
-RAG~\cite{rag} gives the LLM passages retrieved from a document collection, so it can answer from
-text it was never trained on and cite it. Retrieval can be lexical, such as BM25~\cite{bm25}, which
-scores word overlap, or semantic, which compares dense vectors from a sentence encoder such as
-MiniLM~\cite{minilm,sbert}. The two kinds miss different passages, and reciprocal rank
-fusion~\cite{rrf} is a simple way to combine their ranked lists. A known weakness of RAG is that the
-LLM may still add facts that are not in the passages (hallucination)~\cite{hallucination}, and it
-does not help with arithmetic.
+\paragraph{Retrieval-augmented generation (RAG).} RAG~\cite{rag} is the standard way to let an LLM
+answer from documents it was not trained on: a search step selects the most relevant passages and
+gives them to the LLM together with the question. Search can be \emph{lexical}, such as
+BM25~\cite{bm25}, which scores passages by the words they share with the question, or
+\emph{semantic}, which turns texts into vectors (embeddings) with a model such as
+MiniLM~\cite{minilm,sbert} and compares how similar they are. Reciprocal rank fusion~\cite{rrf}
+combines the two rankings. RAG does not stop the LLM from adding facts that are not in the
+passages~\cite{hallucination}, and it does not help with arithmetic. Program-of-thought
+prompting~\cite{pot} moves arithmetic out of the LLM into code; we go one step further and take the
+most common numbers directly from structured data.
 
-\paragraph{Tools and code instead of free generation.}
-Program-of-thought prompting~\cite{pot} lets the model write code and runs the arithmetic outside
-the model, which improves accuracy on financial QA. Our design goes one step further for the most
-common questions: the numbers come from a database of structured XBRL facts that companies file
-together with their reports, and the change is computed in SQL. The LLM never produces a number on
-these questions.
-
-\paragraph{Big data processing and small models.}
-Apache Spark~\cite{spark} is the standard engine for processing large datasets in parallel on one
-machine or a cluster. Vector search inside a relational database (Postgres with
-pgvector~\cite{pgvector}) lets us keep figures, filings and passages in one place and filter by
-filing before searching. Finally, small open models such as Qwen2.5~\cite{qwen25} can run on a laptop
-or a CPU server, which removes the API cost but makes the models less reliable. Whether a careful
-workflow lets such a model reach useful accuracy is one of our research questions.
+\paragraph{Big data and small models.} Apache Spark~\cite{spark} processes large datasets in
+parallel, on one machine or on a cluster. Postgres with the pgvector extension~\cite{pgvector} stores
+embeddings next to ordinary tables, so figures, filings and passages can live in one database. Small
+open models such as Qwen2.5~\cite{qwen25} run on a laptop at no cost per question but are less
+reliable. Whether a careful design makes such models useful is one of our research questions.
 
 \subsection{Objectives}
 
-The project has four objectives:
 \begin{enumerate}
   \item Build a question-answering workflow over SEC filings in which code, not the LLM, finds and
-        computes every number, and every claim in the answer cites a filing, a statement line or a
-        passage.
-  \item Build a data pipeline on AWS that loads the XBRL figures and the 10-Q text of \emph{every}
-        SEC filer since 2019 into one database, using Spark.
-  \item Evaluate the system against simpler baselines (plain RAG and a closed-book LLM) on our own
-        verified question set and on FinanceBench, with a hosted model (Claude Haiku 5.5) and with
-        small local models (Qwen2.5 3B and 7B).
-  \item Measure the cloud side: time per step, throughput under load, and how the Spark jobs scale
-        with the number of cores.
+        computes every number, and every claim cites a filing, a statement line or a passage.
+  \item Build a data pipeline on AWS that uses Spark to load the figures and the 10-Q text of every
+        SEC filer since 2019 into one database.
+  \item Compare the workflow with simpler systems on our own question set and on FinanceBench, using
+        a hosted LLM (Claude Haiku 5.5) and small local LLMs (Qwen2.5 with 3 and 7 billion
+        parameters).
+  \item Measure the cloud side: time per step, throughput, Spark scaling and the time needed to add
+        new filings.
 \end{enumerate}
